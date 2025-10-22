@@ -52,23 +52,16 @@
         "conversation_log": [
           {
             "role": "user",
-            "content": "Please remember these preferences for our conversation: I live in San Diego and I love diving."
+            "content": "I'm going to Hawaii for 5 days. I prefer the sea rather than the mountains and I want to go diving at least twice. I'm also on a medium budget. Could you give me a plan?"
           },
           {
-            "role": "agent",
-            "content": "Okay, I'll remember that you live in San Diego and love diving."
+            "role": "agent_expected",
+            "content": "Here is a 5-day plan for Oahu, Hawaii, focusing on your preferences: [Plan summary, including at least two diving/snorkeling activities like Hanauma Bay and a North Shore dive]."
           }
         ]
       },
       "conversation": [
-        {
-          "role": "user",
-          "content": "I'm going to Hawaii for 5 days. I prefer the sea rather than the mountains and I want to go diving at least twice. I'm also on a medium budget. Could you give me a plan?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Here is a 5-day plan for Oahu, Hawaii, focusing on your preferences: [Plan summary, including at least two diving/snorkeling activities like Hanauma Bay and a North Shore dive]."
-        },
+        
         {
           "role": "user",
           "content": "Now give me a detailed schedule for Day 2 of the plan."
@@ -124,19 +117,9 @@
       "type": "inter_session_context_with_preference",
       "expected_tools": ["translator"],
       "session_setup": {
-        "description": "This is the previous session where the user set a preference that should be stored.",
+        "description": "This is the stored user preference.",
         "stored_preferences": [
            {"key": "preferred_translation_language", "value": "French"}
-        ],
-        "conversation_log": [
-          {
-            "role": "user",
-            "content": "Please remember my preferred language for translation is French."
-          },
-          {
-            "role": "agent",
-            "content": "Noted. I'll use French for your translation requests."
-          }
         ]
       },
       "conversation": [

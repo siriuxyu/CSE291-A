@@ -1,0 +1,79 @@
+{
+  "test_cases": [
+    {
+      "id": "test_001_calculator",
+      "type": "single_tool",
+      "expected_tools": ["calculator"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "What is the square root of (ln(18) ^ 3) / 3.14?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "The result is approximately 2.773."
+        }
+      ]
+    },
+    {
+      "id": "test_002_weather",
+      "type": "single_tool",
+      "expected_tools": ["weather_tool"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "How is the weather in La Jolla today and tomorrow?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "The weather in La Jolla today is sunny with a high of 72°F. Tomorrow will be partly cloudy with a high of 70°F."
+        }
+      ]
+    },
+    {
+      "id": "test_003_translator",
+      "type": "single_tool",
+      "expected_tools": ["translator"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Translate 'Have a nice day!' to French."
+        },
+        {
+          "role": "agent_expected",
+          "content": "Passez une bonne journée !"
+        }
+      ]
+    },
+    {
+      "id": "test_004_file_system",
+      "type": "single_tool",
+      "expected_tools": ["file_system_search"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Find the path of my doc about 'Agent Project 3'."
+        },
+        {
+          "role": "agent_expected",
+          "content": "I found one file: `/Users/test_user/Documents/Agent_Project_3.pdf`"
+        }
+      ]
+    },
+    {
+      "id": "test_005_web_reader",
+      "type": "single_tool",
+      "expected_tools": ["web_reader"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Read the news : https://www.yahoo.com/news/article/aws-recovering-after-major-outage-affects-apps-and-websites-including-snapchat-and-ring-133005156.html. Which server region is experiencing an issue?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "According to the article, the 'US-EAST-1' server region is experiencing the issue."
+        }
+      ]
+    }
+  ]
+}

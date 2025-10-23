@@ -3,8 +3,15 @@
 Works with a chat model with tool calling support.
 """
 
-from datetime import UTC, datetime
+import sys
+from datetime import datetime, timezone
 from typing import Dict, List, Literal, cast
+
+# Python version compatibility for UTC
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    UTC = timezone.utc
 
 from langchain_core.messages import AIMessage
 from langgraph.graph import StateGraph

@@ -3,8 +3,16 @@
 Works with a chat model with tool calling support.
 """
 
-from datetime import UTC, datetime
+import os
+import sys
+from datetime import datetime, timezone
 from typing import Dict, List, Literal, cast
+
+# Python version compatibility for UTC
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    UTC = timezone.utc
 
 from langchain_core.messages import AIMessage
 from langgraph.graph import StateGraph
@@ -16,6 +24,16 @@ from context import Context
 from state import InputState, State
 from tools import TOOLS
 from utils import load_chat_model
+
+# Import checkpointers
+try:
+    from langgraph.checkpoint.redis import RedisSaver
+    import redis
+except ImportError:
+    RedisSaver = None
+    redis = None
+
+from langgraph.checkpoint.memory import MemorySaver
 
 # Define the function that calls the model
 
@@ -112,7 +130,21 @@ builder.add_conditional_edges(
 # This creates a cycle: after using tools, we always return to the model
 builder.add_edge("tools", "call_model")
 
-checkpointer = MemorySaver()
+# Set up checkpoint storage
+redis_url = os.environ.get("REDIS_URL")
 
-# Compile the builder into an executable graph
+if redis_url and RedisSaver:
+    try:
+        checkpointer = RedisSaver.from_url(redis_url)
+        print(f"Successfully connected to Redis at {redis_url}")
+    except (redis.exceptions.ConnectionError, Exception) as e:
+        print(f"Warning: Could not connect to Redis at {redis_url}. Error: {e}")
+        print("Falling back to in-memory saver. THIS IS NOT PERSISTENT.")
+        checkpointer = MemorySaver()
+else:
+    print("WARNING: REDIS_URL environment variable not set.")
+    print("Using in-memory saver. User sessions will NOT be isolated or persistent.")
+    checkpointer = MemorySaver()
+
+# Compile the builder into an executable graph with checkpointer
 graph = builder.compile(name="ReAct Agent", checkpointer=checkpointer)

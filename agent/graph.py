@@ -5,6 +5,7 @@ Works with a chat model with tool calling support.
 
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from typing import Dict, List, Literal, cast
 
@@ -22,8 +23,8 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from .context import Context
 from .state import InputState, State
+from .utils import get_logger, load_chat_model
 from tools import TOOLS
-from .utils import load_chat_model
 
 # Import checkpointers
 try:
@@ -34,6 +35,9 @@ except ImportError:
     redis = None
 
 from langgraph.checkpoint.memory import MemorySaver
+
+# Initialize logger
+logger = get_logger(__name__)
 
 # Define the function that calls the model
 
@@ -46,29 +50,97 @@ async def call_model(
 
     Args:
         state (State): The current state of the conversation.
-        config (RunnableConfig): Configuration for the model run.
+        runtime (Runtime[Context]): Runtime context for the model.
 
     Returns:
         dict: A dictionary containing the model's response message.
     """
+    start_time = time.time()
+    
+    logger.info("Calling model", extra={
+        'function': 'call_model',
+        'details': {
+            'model': runtime.context.model,
+            'message_count': len(state.messages),
+            'is_last_step': state.is_last_step
+        }
+    })
+    
     # Initialize the model with tool binding. Change the model or add more tools here.
     model = load_chat_model(runtime.context.model).bind_tools(TOOLS)
+    
+    logger.debug("Model loaded and tools bound", extra={
+        'function': 'call_model',
+        'details': {
+            'model': runtime.context.model,
+            'available_tools': [tool.name for tool in TOOLS]
+        }
+    })
 
     # Format the system prompt. Customize this to change the agent's behavior.
     system_message = runtime.context.system_prompt.format(
         system_time=datetime.now(tz=UTC).isoformat()
     )
+    
+    logger.debug("Prepared system prompt", extra={
+        'function': 'call_model',
+        'details': {
+            'system_prompt_length': len(system_message),
+            'system_time': datetime.now(tz=UTC).isoformat()
+        }
+    })
 
     # Get the model's response
+    logger.debug("Invoking model", extra={
+        'function': 'call_model',
+        'details': {
+            'total_messages': len(state.messages) + 1  # +1 for system message
+        }
+    })
+    
     response = cast( # type: ignore[redundant-cast]
         AIMessage,
         await model.ainvoke(
             [{"role": "system", "content": system_message}, *state.messages]
         ),
     )
+    
+    model_duration_ms = (time.time() - start_time) * 1000
+    
+    logger.info("Model response received", extra={
+        'function': 'call_model',
+        'duration_ms': round(model_duration_ms, 2),
+        'details': {
+            'has_tool_calls': bool(response.tool_calls),
+            'tool_calls_count': len(response.tool_calls) if response.tool_calls else 0,
+            'response_length': len(response.content) if response.content else 0,
+            'response_preview': response.content[:200] if response.content else None
+        }
+    })
+    
+    # Log tool calls if present
+    if response.tool_calls:
+        logger.debug("Model requested tool calls", extra={
+            'function': 'call_model',
+            'details': {
+                'tool_calls': [
+                    {
+                        'name': tc.get('name', 'unknown'),
+                        'args_preview': {k: str(v)[:50] for k, v in tc.get('args', {}).items()}
+                    }
+                    for tc in response.tool_calls
+                ]
+            }
+        })
 
     # Handle the case when it's the last step and the model still wants to use a tool
     if state.is_last_step and response.tool_calls:
+        logger.warning("Model requested tools on last step, returning fallback message", extra={
+            'function': 'call_model',
+            'details': {
+                'tool_calls_count': len(response.tool_calls)
+            }
+        })
         return {
             "messages": [
                 AIMessage(
@@ -111,10 +183,36 @@ def route_model_output(state: State) -> Literal["__end__", "tools"]:
         raise ValueError(
             f"Expected AIMessage in output edges, but got {type(last_message).__name__}"
         )
+    
+    has_tool_calls = bool(last_message.tool_calls)
+    
+    logger.debug("Routing model output", extra={
+        'function': 'route_model_output',
+        'details': {
+            'has_tool_calls': has_tool_calls,
+            'tool_calls_count': len(last_message.tool_calls) if last_message.tool_calls else 0
+        }
+    })
+    
     # If there is no tool call, then we finish
-    if not last_message.tool_calls:
+    if not has_tool_calls:
+        logger.info("No tool calls detected, ending conversation", extra={
+            'function': 'route_model_output',
+            'details': {'next_node': '__end__'}
+        })
         return "__end__"
+    
     # Otherwise we execute the requested actions
+    logger.info("Tool calls detected, routing to tools", extra={
+        'function': 'route_model_output',
+        'details': {
+            'next_node': 'tools',
+            'tool_calls': [
+                {'name': tc.get('name', 'unknown')} 
+                for tc in last_message.tool_calls[:3]  # Log first 3 tools
+            ]
+        }
+    })
     return "tools"
 
 
@@ -136,14 +234,14 @@ redis_url = os.environ.get("REDIS_URL")
 if redis_url and RedisSaver:
     try:
         checkpointer = RedisSaver.from_url(redis_url)
-        print(f"Successfully connected to Redis at {redis_url}")
+        logger.info(f"Successfully connected to Redis at {redis_url}")
     except (redis.exceptions.ConnectionError, Exception) as e:
-        print(f"Warning: Could not connect to Redis at {redis_url}. Error: {e}")
-        print("Falling back to in-memory saver. THIS IS NOT PERSISTENT.")
+        logger.warning(f"Could not connect to Redis at {redis_url}. Error: {e}")
+        logger.warning("Falling back to in-memory saver. THIS IS NOT PERSISTENT.")
         checkpointer = MemorySaver()
 else:
-    print("WARNING: REDIS_URL environment variable not set.")
-    print("Using in-memory saver. User sessions will NOT be isolated or persistent.")
+    logger.warning("REDIS_URL environment variable not set.")
+    logger.warning("Using in-memory saver. User sessions will NOT be isolated or persistent.")
     checkpointer = MemorySaver()
 
 # Compile the builder into an executable graph with checkpointer

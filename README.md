@@ -11,6 +11,7 @@ This project provides a FastAPI server for the React Agent, a LangGraph-based ag
 - **Docker Support**: Containerized deployment ready
 - **Async Support**: Full async/await support for high performance
 - **State Management**: Conversation history and context tracking
+- **Logging**: Automatic logging to both console and file for debugging and monitoring
 
 ## Quick Start
 
@@ -185,6 +186,74 @@ CSE291-A/
 - `SYSTEM_PROMPT`: Default system prompt (optional)
 - `MODEL`: Default model to use (optional)
 - `MAX_SEARCH_RESULTS`: Maximum search results (optional)
+- `REDIS_URL`: Redis connection URL for persistent state storage (optional)
+
+## Logging
+
+The application automatically logs to both console and files with a comprehensive structured logging system:
+
+### Log Outputs
+
+- **Console**: Shows INFO level and above logs with simplified format for readability
+- **File**: Logs all DEBUG and above logs to `logs/react_agent_YYYYMMDD_HHMMSS.log` in JSON format
+
+### Structured Logging Features
+
+The logging system uses Python's built-in `logging` module with custom JSON formatting:
+
+- **Request Tracking**: Each request gets a unique request ID for tracing through the system
+- **User Context**: User IDs are tracked throughout the request lifecycle
+- **Function Tracking**: Logs include function names for debugging
+- **Performance Metrics**: Duration tracking for operations (in milliseconds)
+- **Detailed Context**: Rich details about operations, tool calls, and model interactions
+- **Automatic Timestamps**: ISO format timestamps for all log entries
+- **Error Tracking**: Full stack traces for exceptions
+
+### Log Levels
+
+- **DEBUG**: Detailed diagnostic information for development
+- **INFO**: General operational information (default level)
+- **WARNING**: Warning messages for potential issues
+- **ERROR**: Error messages with full stack traces
+
+### Example Log Entry
+
+```json
+{
+  "timestamp": "2025-10-23T14:40:25.123456",
+  "level": "INFO",
+  "logger": "agent.graph",
+  "message": "Model response received",
+  "function": "call_model",
+  "duration_ms": 1234.56,
+  "details": {
+    "has_tool_calls": true,
+    "tool_calls_count": 2,
+    "response_length": 156
+  }
+}
+```
+
+### What Gets Logged
+
+**API Requests:**
+- Request received with message count and user ID
+- Context creation (model, system prompt, etc.)
+- Agent execution start
+- Chunk processing (model calls, tool executions)
+- Request completion with duration and statistics
+
+**Agent Operations:**
+- Model calls with timing and response details
+- Tool calls detection and routing
+- Graph execution flow
+- State transitions
+
+**System Events:**
+- Logging initialization
+- Server startup
+- Redis connection status
+- Error occurrences with full context
 
 ## Example Usage
 

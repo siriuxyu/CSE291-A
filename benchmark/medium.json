@@ -115,7 +115,7 @@
     {
       "id": "test_009_translation_context",
       "type": "inter_session_context_with_preference",
-      "expected_tools": ["translator"],
+      "expected_tools": ["get_weather", "translator"],
       "session_setup": {
         "description": "This is the stored user preference.",
         "stored_preferences": [
@@ -123,6 +123,14 @@
         ]
       },
       "conversation": [
+        {
+          "role": "user",
+          "content": "I am going to Paris for business, how is the weather there?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "Weather in French"
+        },
         {
           "role": "user",
           "content": "I need some help. How do I say, 'I would like to book a double room'?"

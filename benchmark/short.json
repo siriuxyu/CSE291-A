@@ -22,11 +22,11 @@
       "conversation": [
         {
           "role": "user",
-          "content": "How is the weather in La Jolla today and tomorrow?"
+          "content": "How is the weather in San Diego right now?"
         },
         {
           "role": "agent_expected",
-          "content": "The weather in La Jolla today is sunny with a high of 72°F. Tomorrow will be partly cloudy with a high of 70°F."
+          "content": "The weather in San Diego today is sunny with a high of 72°F. Tomorrow will be partly cloudy with a high of 70°F."
         }
       ]
     },

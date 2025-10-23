@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
-from utils import load_chat_model
+from agent.utils import load_chat_model
 
 model = "anthropic/claude-sonnet-4-5-20250929"
 

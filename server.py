@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import uuid
-from graph import graph
-from context import Context
+from agent.graph import graph
+from agent.context import Context
 
 
 api = FastAPI()

@@ -1,0 +1,154 @@
+{
+  "test_cases": [
+    {
+      "id": "test_006_reading_comprehension",
+      "type": "intra_session_context_grounding",
+      "expected_tools": [],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Please read the following text and answer the questions that follow: [Text Start] Is comprehension the same whether a person reads a text onscreen or on paper? ... The reasons relate to... reduced concentration... When reading texts of several hundred words or more, learning is generally more successful when it's on paper... The benefits of print reading particularly shine through when experimenters move from... simple tasks... to ones that require mental abstraction... The differences... relate to paper's physical properties... People often link their memory... to how far into the book... But equally important is the mental aspect... 'shallowing hypothesis.' According to this theory, people approach digital texts with a mindset suited to social media... and devote less mental effort... Audio and video can feel more engaging... psychologists have demonstrated that when adults read news stories, they remember more... Digital texts, audio and video all have educational roles... However, for maximizing learning... educators shouldn't assume all media are the same... [Text End]. Now, Q1: What does the underlined phrase 'shine through' in paragraph 2 mean? (A) Seem unlikely to last. (B) Seem hard to explain. (C) Become ready to use. (D) Become easy to notice."
+        },
+        {
+          "role": "agent_expected",
+          "content": "D: Become easy to notice."
+        },
+        {
+          "role": "user",
+          "content": "Q2: What does the shallowing hypothesis assume? (A) Readers treat digital texts lightly. (B) Digital texts are simpler to understand. (C) People select digital texts randomly. (D) Digital texts are suitable for social media."
+        },
+        {
+          "role": "agent_expected",
+          "content": "A: Readers treat digital texts lightly."
+        },
+        {
+          "role": "user",
+          "content": "Q3: Why are audio and video increasingly used by university teachers? (A) They can hold students' attention. (B) They are more convenient to prepare. (C) They help develop advanced skills. (D) They are more informative than text."
+        },
+        {
+          "role": "agent_expected",
+          "content": "A: They can hold students' attention."
+        },
+        {
+          "role": "user",
+          "content": "Q4: What does the author imply in the last paragraph? (A) Students should apply multiple learning techniques. (B) Teachers should produce their own teaching material. (C) Print texts cannot be entirely replaced in education. (D) Education outside the classroom cannot be ignored."
+        },
+        {
+          "role": "agent_expected",
+          "content": "C: Print texts cannot be entirely replaced in education."
+        }
+      ]
+    },
+    {
+      "id": "test_007_trip_planning_context",
+      "type": "inter_session_context_with_preference",
+      "expected_tools": ["weather_tool"],
+      "session_setup": {
+        "description": "This is the previous session where the user set a preference that should be stored.",
+        "stored_preferences": [
+          {"key": "living_place", "value": "San Diego"},
+          {"key": "hobbies", "value": ["diving"]}
+        ],
+        "conversation_log": [
+          {
+            "role": "user",
+            "content": "I'm going to Hawaii for 5 days. I prefer the sea rather than the mountains and I want to go diving at least twice. I'm also on a medium budget. Could you give me a plan?"
+          },
+          {
+            "role": "agent_expected",
+            "content": "Here is a 5-day plan for Oahu, Hawaii, focusing on your preferences: [Plan summary, including at least two diving/snorkeling activities like Hanauma Bay and a North Shore dive]."
+          }
+        ]
+      },
+      "conversation": [
+        
+        {
+          "role": "user",
+          "content": "Now give me a detailed schedule for Day 2 of the plan."
+        },
+        {
+          "role": "agent_expected",
+          "content": "Here is a detailed schedule for Day 2 (e.g., Hanauma Bay Snorkeling): 8:00 AM: Breakfast... 9:00 AM: Arrive at Hanauma Bay... [etc.]"
+        },
+        {
+          "role": "user",
+          "content": "What is the weather in Beijing today?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "The weather in Beijing today is [current Beijing weather, e.g., 65°F and clear]."
+        },
+        {
+          "role": "user",
+          "content": "Thanks. Now, back to the trip. Please compare the water temperature in Hawaii for my trip with the current water temperature in my living place."
+        },
+        {
+          "role": "agent_expected",
+          "comment": "Agent must retrieve 'living_place: San Diego' from session_setup.",
+          "content": "The water temperature in Hawaii (Oahu) is typically around 77°F. The current water temperature in San Diego (your living place) is around 65°F. The water in Hawaii will be significantly warmer."
+        }
+      ]
+    },
+    {
+      "id": "test_008_arithmetic_context",
+      "type": "intra_session_context",
+      "expected_tools": ["calculator"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "A portfolio was worth $250,000 last year. If it had an 8.5% return this year, how much did it increase in value?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "The portfolio increased in value by $21,250."
+        },
+        {
+          "role": "user",
+          "content": "From that increase, subtract 20% for capital gains tax. How much is left after tax?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "After deducting 20% for capital gains tax, the remaining amount is $17,000."
+        }
+      ]
+    },
+    {
+      "id": "test_009_translation_context",
+      "type": "inter_session_context_with_preference",
+      "expected_tools": ["get_weather", "translator"],
+      "session_setup": {
+        "description": "This is the stored user preference.",
+        "stored_preferences": [
+           {"key": "preferred_translation_language", "value": "French"}
+        ]
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I am going to Paris for business, how is the weather there?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "Weather in French"
+        },
+        {
+          "role": "user",
+          "content": "I need some help. How do I say, 'I would like to book a double room'?"
+        },
+        {
+          "role": "agent_expected",
+          "comment": "Agent must retrieve 'preferred_translation_language: French' from session_setup rather than default to English or ask for language.",
+          "content": "In French, that is: 'Je voudrais réserver une chambre double.'"
+        },
+        {
+          "role": "user",
+          "content": "Thanks. Another one, 'Is breakfast included?'"
+        },
+        {
+          "role": "agent_expected",
+          "content": "That would be: 'Est-ce que le petit-déjeuner est inclus ?'"
+        }
+      ]
+    }
+  ]
+}

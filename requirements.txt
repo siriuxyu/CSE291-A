@@ -1,0 +1,38 @@
+# Core LangChain dependencies
+langchain>=0.3.0
+langchain-core>=0.3.0
+langgraph>=0.2.0
+
+# Anthropic provider for Claude models
+langchain-anthropic>=0.3.0
+anthropic>=0.40.0
+
+# For OpenAI models (uncomment if needed)
+# langchain-openai>=0.3.0
+# openai>=1.0.0
+
+# For other providers (uncomment as needed)
+# langchain-google-genai>=2.0.0  # For Google Gemini
+# google-generativeai>=0.8.0
+# langchain-cohere>=0.3.0  # For Cohere models
+# cohere>=4.0.0
+
+# Optional: Tavily search (commented out in tools.py but may be useful)
+# langchain-tavily>=0.1.0
+
+# Standard library dependencies (usually included with Python)
+# asyncio - built-in
+# dataclasses - built-in (Python 3.7+)
+# typing - built-in
+# typing_extensions - for Annotated type hints
+typing_extensions>=4.0.0
+
+# Additional utilities that might be needed
+# os - built-in
+# datetime - built-in
+
+# FastAPI dependencies
+fastapi>=0.104.0
+uvicorn>=0.24.0
+redis>=5.0.0
+pydantic>=2.0.0

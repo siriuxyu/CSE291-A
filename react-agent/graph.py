@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
+from langgraph.checkpoint.memory import MemorySaver
 
 from context import Context
 from state import InputState, State
@@ -111,5 +112,7 @@ builder.add_conditional_edges(
 # This creates a cycle: after using tools, we always return to the model
 builder.add_edge("tools", "call_model")
 
+checkpointer = MemorySaver()
+
 # Compile the builder into an executable graph
-graph = builder.compile(name="ReAct Agent")
+graph = builder.compile(name="ReAct Agent", checkpointer=checkpointer)

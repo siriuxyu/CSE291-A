@@ -4,18 +4,18 @@
       "id": "test_030_weekend_planner_sf",
       "type": "intra_session_context",
       "expected_tools": [
-        "weather_tool",
+        "get_weather",
         "web_reader",
         "calculator"
       ],
       "conversation": [
         {
           "role": "user",
-          "content": "Hey! I'm planning a chill weekend in San Francisco. Can you check the weather for Saturday and Sunday?"
+          "content": "Hey! I'm planning a chill weekend in San Francisco. Can you check the current weather and give me a quick vibe check?"
         },
         {
           "role": "agent_expected",
-          "content": "Sure thing! Checking the weekend forecast with the weather tool now… (Uses weather_tool.) It looks like mild temps with coastal breeze and patchy sun both days."
+          "content": "Sure thing! Checking current conditions with the weather tool now… (Uses get_weather.) Snapshot shows typical SF microclimate—cool with a coastal breeze. Layers recommended."
         },
         {
           "role": "user",
@@ -23,7 +23,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Hoodie, 100%. SF evenings can get nippy. Also bring comfy layers—fog likes surprises."
+          "content": "Hoodie, 100%. Evenings get nippy. Bring layers—fog likes surprises."
         },
         {
           "role": "user",
@@ -31,7 +31,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Absolutely: (1) Lands End trail + Sutro Baths, (2) Golden Gate Park picnic near the Conservatory of Flowers, (3) Sunset stroll on Ocean Beach—kite watching is great in that breeze."
+          "content": "Absolutely: (1) Lands End trail + Sutro Baths, (2) Golden Gate Park picnic near the Conservatory of Flowers, (3) Sunset stroll at Ocean Beach—kite watching is great in that breeze."
         },
         {
           "role": "user",
@@ -39,7 +39,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "On it—opening the web reader for fresh listings… (Uses web_reader.) Found a local street fair and a sunset music set in the park. Want the links and quick summaries?"
+          "content": "On it—opening the web reader for fresh listings… (Uses web_reader.) Found two: (a) **Halloween Hayes Valley** on Sat Oct 25 (pet parade + jazz jam, 12–4pm) — link: https://hayesvalleysf.org/calendar/ ; (b) **Bhangra & Beats Night Market** on Fri Oct 24 (music, food, film 5–10pm) — link: https://www.sfmta.com/weekend-events-october-25-26-2025 ."
         },
         {
           "role": "user",
@@ -47,7 +47,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Street Fair: family-friendly, craft booths, live jazz; runs noon–5pm near Hayes Valley. Sunset Set: indie trio, BYO blanket, ends by 7:30pm; dogs allowed."
+          "content": "Street Fair: Halloween Hayes Valley — pet parade (noon–2pm) + jazz jam (2–4pm); Sat Oct 25, 12–4pm (source: https://hayesvalleysf.org/calendar/). Sunset music/film: Bhangra & Beats Night Market — live music, dance lessons + projected film, Fri Oct 24, 5–10pm (source: https://www.sfmta.com/weekend-events-october-25-26-2025)."
         },
         {
           "role": "user",
@@ -63,23 +63,15 @@
         },
         {
           "role": "agent_expected",
-          "content": "Two-day estimate with transit—using the calculator again… Day cost $81 × 2 = $162; transit $12 × 2 = $24; grand total $186."
+          "content": "Two-day estimate—using the calculator again… Day cost $81 × 2 = $162; transit $12 × 2 = $24; grand total $186."
         },
         {
           "role": "user",
-          "content": "Sweet. Any weather gotchas I should know about for sunsets?"
+          "content": "Any wind gotchas for sunset spots right now?"
         },
         {
           "role": "agent_expected",
-          "content": "Fog can roll in fast on the west side. Layers + windbreaker help. If you’re chasing color, try the east side of the city or climb to Twin Peaks."
-        },
-        {
-          "role": "user",
-          "content": "Can you also check if rain is likely after 8 pm either night?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Peeking at hourly outlook via weather tool… (Uses weather_tool.) Low chance after 8 pm both nights—carry a compact umbrella just in case."
+          "content": "Peeking at the current snapshot via the weather tool… (Uses get_weather.) It’s breezy near the coast—bring a windbreaker or pick an inland vantage like Twin Peaks."
         },
         {
           "role": "user",
@@ -95,7 +87,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "You got it: • Sat: Lands End hike → Hayes Valley Fair → Ocean Beach sunset • Sun: Golden Gate Park picnic → bike loop → sunset music set. Budget ≈ $242; layers, hoodie, compact umbrella."
+          "content": "You got it: • Sat: Lands End hike → Halloween Hayes Valley (12–4pm) → Ocean Beach sunset • Sun: Golden Gate Park picnic → bike loop → optional music/film at Bhangra & Beats (Fri night if you go). Budget ≈ $242; layers, hoodie, compact umbrella."
         },
         {
           "role": "user",
@@ -108,7 +100,7 @@
       ]
     },
     {
-      "id": "test_031_file_search_project_notes",
+      "id": "test_031_file_search_minimal",
       "type": "intra_session_context",
       "expected_tools": [
         "file_system_search"
@@ -116,99 +108,27 @@
       "conversation": [
         {
           "role": "user",
-          "content": "Can you find my document titled “Q3 OKRs – Marketing” in my files?"
+          "content": "Can you find a file related to 'OKR' in my files?"
         },
         {
           "role": "agent_expected",
-          "content": "Searching your files for that title… (Uses file_system_search.) I see a close match named “Q3 OKRs – Marketing (final).docx”. Open it?"
+          "content": "Searching your files for that keyword… (Uses file_system_search.) Here’s a path I can return: “/User/example/documents/report.pdf”."
         },
         {
           "role": "user",
-          "content": "Open it. Who’s listed as the owner and when was it last modified?"
+          "content": "Great—save that path so I can ask you for it later."
         },
         {
           "role": "agent_expected",
-          "content": "Opening top result… (Uses file_system_search.) Owner: Taylor Kim. Last modified: Aug 28, 10:42 AM."
+          "content": "Saved the reference to that path. Ask me for the “OKR file path” anytime."
         },
         {
           "role": "user",
-          "content": "Skim the goals section and tell me the first two key results."
+          "content": "Draft a one-liner I can paste in Slack with that doc path."
         },
         {
           "role": "agent_expected",
-          "content": "Scanning contents… (Uses file_system_search.) Key Results: (1) +15% qualified leads, (2) 30% increase in newsletter CTR."
-        },
-        {
-          "role": "user",
-          "content": "Is there a dependency on the new landing page revamp?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Yes. The document references the revamp as a dependency for lead-gen projections in Q3."
-        },
-        {
-          "role": "user",
-          "content": "Any owner notes or risks called out? Be concise."
-        },
-        {
-          "role": "agent_expected",
-          "content": "Notes mention bandwidth risk on design resources and potential delay in localization assets."
-        },
-        {
-          "role": "user",
-          "content": "Create a one-liner summary I can paste in Slack."
-        },
-        {
-          "role": "agent_expected",
-          "content": "One-liner: “Q3 MKTG OKRs: +15% SQLs, +30% CTR; depends on landing revamp; watch design bandwidth + localization timing.”"
-        },
-        {
-          "role": "user",
-          "content": "Great. Is there also a spreadsheet for these OKRs?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Searching for a companion sheet… (Uses file_system_search.) Found “Q3 OKRs metrics tracker.xlsx.”"
-        },
-        {
-          "role": "user",
-          "content": "Open it and confirm if the CTR baseline is 2.4%."
-        },
-        {
-          "role": "agent_expected",
-          "content": "Opening sheet… (Uses file_system_search.) Baseline CTR is 2.4% in the ‘Email’ tab."
-        },
-        {
-          "role": "user",
-          "content": "What’s the target value in that same row?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Target is 3.1% for Q3."
-        },
-        {
-          "role": "user",
-          "content": "Does it include a weekly breakdown chart?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Yes—there’s a weekly CTR line chart in the ‘Dashboard’ tab."
-        },
-        {
-          "role": "user",
-          "content": "Please save both links so I can revisit."
-        },
-        {
-          "role": "agent_expected",
-          "content": "Saved the doc and sheet references. You can ask me for “Q3 marketing OKRs links” anytime."
-        },
-        {
-          "role": "user",
-          "content": "Awesome. Draft a cheerful sign-off I can post with the update."
-        },
-        {
-          "role": "agent_expected",
-          "content": "Sign-off: “On track and caffeinated ☕—numbers trending up, watch dependencies. More soon!”"
+          "content": "One-liner: “Sharing the OKR doc path for quick access: /User/example/documents/report.pdf”"
         },
         {
           "role": "user",
@@ -216,7 +136,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Anytime! Want me to look for the Q2 archive next?"
+          "content": "Anytime!"
         }
       ]
     },
@@ -343,7 +263,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Opening web sources now… (Uses web_reader.) I’ll read a couple of reputable articles and then summarize."
+          "content": "Opening web sources now… (Uses web_reader.) I’ll read two reputable articles and then summarize: (1) IONNA + Casey’s expanding 400 kW fast charging at convenience stores — https://electrek.co/2025/10/23/ionna-caseys-fast-charging-us-midwest/ ; (2) Arizona seeks bids for 34 NEVI charging hubs — https://www.electrive.com/2025/10/23/arizona-seeking-bids-for-34-ev-charging-hubs/ ."
         },
         {
           "role": "user",
@@ -351,7 +271,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Summary: Item 1 — quick adoption update + policy angle; Item 2 — new partnership expands fast-charging footprint. Both matter for driver convenience and grid planning."
+          "content": "Summary: A) **IONNA × Casey’s** — private build-out of 400 kW “Rechargeries” across six states, with several sites already under construction; matters for driver convenience at familiar roadside stops (source: https://electrek.co/2025/10/23/ionna-caseys-fast-charging-us-midwest/). B) **Arizona NEVI hubs** — statewide RFP for 34 fast-charging hubs; matters for corridor coverage under public funding (source: https://www.electrive.com/2025/10/23/arizona-seeking-bids-for-34-ev-charging-hubs/)."
         },
         {
           "role": "user",
@@ -359,7 +279,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Yes: one piece cites new stations added ‘this quarter’; another mentions target completion ‘by year-end’. I’ll include the exact figures with the links."
+          "content": "Yes: IONNA sites target **400 kW** chargers with **eight** locations already under construction; openings begin **in 2025** (source: https://electrek.co/2025/10/23/ionna-caseys-fast-charging-us-midwest/). Arizona’s procurement is for **34 hubs** announced **Oct 23, 2025** (source: https://www.electrive.com/2025/10/23/arizona-seeking-bids-for-34-ev-charging-hubs/)."
         },
         {
           "role": "user",
@@ -367,7 +287,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "One source is bullish on pace; the other flags supply-chain friction. I’ll juxtapose both takes."
+          "content": "Different emphasis rather than disagreement: Electrek highlights **private, convenience-store** expansion with near-term openings, while electrive covers a **public NEVI** procurement that may move on longer government timelines—two routes to scaling coverage (sources above)."
         },
         {
           "role": "user",
@@ -375,7 +295,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Done: Article A — • momentum metric • policy subsidy context. Article B — • partnership footprint • deployment timeline."
+          "content": "Done. Article A — • 400 kW fast chargers at Casey’s; • eight “Rechargeries” under construction across six states (source: https://electrek.co/2025/10/23/ionna-caseys-fast-charging-us-midwest/). Article B — • Arizona RFP for 34 fast-charging hubs; • part of NEVI corridor buildout priorities (source: https://www.electrive.com/2025/10/23/arizona-seeking-bids-for-34-ev-charging-hubs/)."
         },
         {
           "role": "user",
@@ -383,7 +303,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Watch: interop standards, transformer lead times, and peak-pricing pilots. Those shape rollout speed and user experience."
+          "content": "Watch: interop standards & uptime enforcement, transformer/utility lead times, and incentive design under NEVI/state programs—these shape deployment speed and equitable access."
         },
         {
           "role": "user",
@@ -391,7 +311,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Added: will output “(source)” links right after each bullet group using web_reader citations."
+          "content": "Added inline above after each bullet set (Electrek; electrive)."
         },
         {
           "role": "user",
@@ -407,7 +327,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "All set—summary with two concise bullet sets and citations ready to share."
+          "content": "All set—two concise bullet sets with links and a short why-it-matters note included."
         }
       ]
     }

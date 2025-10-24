@@ -39,8 +39,15 @@ async def main():
     # await ask("How is the weather in San Diego right now?")
     # await ask("Translate 'Have a nice day!' to French.")
     # await ask("Read the news : https://www.yahoo.com/news/article/aws-recovering-after-major-outage-affects-apps-and-websites-including-snapchat-and-ring-133005156.html. Which server region is experiencing an issue?")
-    await ask("Find the path of my doc about 'Agent Project 3'.")
-
+    # await ask("Now give me a detailed schedule for Day 2 of the plan.")
+    # await ask("What is the weather in Beijing today?")
+    # await ask("Thanks. Now, back to the trip. Please compare the water temperature in Hawaii for my trip with the current water temperature in my living place.")
+    # await ask("What is the weather in Tokyo today? Please translate the weather report to Japanese.")
+    # await ask(r"A portfolio was worth $250,000 last year. If it had an 8.5% return this year, how much did it increase in value?")
+    # await ask(r"From that increase, subtract 20% for capital gains tax. How much is left after tax?")
+    await ask("I need some help. How do I say, 'I would like to book a double room'?")
+    await ask("I am going to Paris for business, how is the weather there?")
+    await ask("Thanks. Another one, 'Is breakfast included?'")
 
 if __name__ == "__main__":
     asyncio.run(main())

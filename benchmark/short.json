@@ -74,6 +74,21 @@
           "content": "According to the article, the 'US-EAST-1' server region is experiencing the issue."
         }
       ]
+    },
+    {
+      "id": "test_006_tool_combination",
+      "type": "multi_tool",
+      "expected_tools": ["get_weather", "translator"],
+      "conversation": [
+        {
+          "role": "user",
+          "content": "What is the weather in Tokyo today? Please translate the weather report to Japanese."
+        },
+        {
+          "role": "agent_expected",
+          "content": "Use get_weather to find the weather in Tokyo, then use translator to translate the report to Japanese."
+        }
+      ]
     }
   ]
 }

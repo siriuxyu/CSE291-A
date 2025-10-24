@@ -125,20 +125,20 @@
       "conversation": [
         {
           "role": "user",
-          "content": "I am going to Paris for business, how is the weather there?"
-        },
-        {
-          "role": "agent_expected",
-          "content": "Weather in French"
-        },
-        {
-          "role": "user",
           "content": "I need some help. How do I say, 'I would like to book a double room'?"
         },
         {
           "role": "agent_expected",
           "comment": "Agent must retrieve 'preferred_translation_language: French' from session_setup rather than default to English or ask for language.",
           "content": "In French, that is: 'Je voudrais réserver une chambre double.'"
+        },
+        {
+          "role": "user",
+          "content": "I am going to Paris for business, how is the weather there?"
+        },
+        {
+          "role": "agent_expected",
+          "content": "Weather in French"
         },
         {
           "role": "user",

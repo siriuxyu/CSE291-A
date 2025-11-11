@@ -11,6 +11,8 @@ from agent.utils import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
+from dotenv import load_dotenv
+load_dotenv()
 
 api = FastAPI()
 

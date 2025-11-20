@@ -232,3 +232,109 @@ def load_chat_model(fully_specified_name: str) -> BaseChatModel:
     """
     provider, model = fully_specified_name.split("/", maxsplit=1)
     return init_chat_model(model, model_provider=provider)
+
+
+def print_debug(event):
+    """Debug mode: formatted output with all event information"""
+    from langchain_core.messages import HumanMessage, AIMessage
+
+    print("\n" + "─" * 60)
+    for node_name, node_data in event.items():
+        print(f"📦 Node: {node_name}")
+        print("─" * 60)
+
+        if 'messages' in node_data:
+            for msg in node_data['messages']:
+                msg_type = type(msg).__name__
+
+                if isinstance(msg, HumanMessage):
+                    print(f"👤 HumanMessage:")
+                    print(f"   Content: {msg.content}")
+                    if hasattr(msg, 'id'):
+                        print(f"   ID: {msg.id}")
+
+                elif isinstance(msg, AIMessage):
+                    print(f"🤖 AIMessage:")
+
+                    # Content
+                    if isinstance(msg.content, str):
+                        print(f"   Content: {msg.content}")
+                    elif isinstance(msg.content, list):
+                        print(f"   Content (list):")
+                        for idx, item in enumerate(msg.content):
+                            if isinstance(item, dict):
+                                if item.get('type') == 'tool_use':
+                                    print(f"      [{idx}] Tool Use:")
+                                    print(f"         Name: {item.get('name')}")
+                                    print(f"         ID: {item.get('id')}")
+                                    print(f"         Input: {json.dumps(item.get('input'), ensure_ascii=False)}")
+                                elif item.get('type') == 'text':
+                                    print(f"      [{idx}] Text: {item.get('text')}")
+                                else:
+                                    print(f"      [{idx}] {json.dumps(item, ensure_ascii=False)}")
+                            else:
+                                print(f"      [{idx}] {item}")
+
+                    # Additional kwargs
+                    if hasattr(msg, 'additional_kwargs') and msg.additional_kwargs:
+                        print(f"   Additional kwargs: {json.dumps(msg.additional_kwargs, ensure_ascii=False)}")
+
+                    # Tool calls
+                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        print(f"   Tool calls:")
+                        for tc in msg.tool_calls:
+                            print(f"      - Name: {tc.get('name')}")
+                            print(f"        ID: {tc.get('id')}")
+                            print(f"        Args: {json.dumps(tc.get('args'), ensure_ascii=False)}")
+                            print(f"        Type: {tc.get('type')}")
+
+                    # Response metadata
+                    if hasattr(msg, 'response_metadata') and msg.response_metadata:
+                        print(f"   Response metadata:")
+                        metadata = msg.response_metadata
+                        print(f"      ID: {metadata.get('id')}")
+                        print(f"      Model: {metadata.get('model_name')}")
+                        print(f"      Provider: {metadata.get('model_provider')}")
+                        print(f"      Stop reason: {metadata.get('stop_reason')}")
+                        if 'usage' in metadata:
+                            print(f"      Usage:")
+                            usage = metadata['usage']
+                            for k, v in usage.items():
+                                print(f"         {k}: {v}")
+
+                    # Usage metadata
+                    if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
+                        print(f"   Usage metadata: {json.dumps(msg.usage_metadata, ensure_ascii=False)}")
+
+                    # ID
+                    if hasattr(msg, 'id'):
+                        print(f"   Message ID: {msg.id}")
+
+                else:
+                    # Tool message or other types
+                    print(f"🔧 {msg_type}:")
+                    if hasattr(msg, 'content'):
+                        print(f"   Content: {msg.content}")
+                    if hasattr(msg, 'name'):
+                        print(f"   Tool name: {msg.name}")
+                    if hasattr(msg, 'tool_call_id'):
+                        print(f"   Tool call ID: {msg.tool_call_id}")
+                    if hasattr(msg, 'id'):
+                        print(f"   Message ID: {msg.id}")
+
+                print()
+        else:
+            # Non-message data
+            print(json.dumps(node_data, indent=2, ensure_ascii=False, default=str))
+            print()
+
+
+def print_simple(event):
+    """Simple mode: only output the last AI message"""
+    from langchain_core.messages import AIMessage
+
+    for key, value in event.items():
+        if 'messages' in value and len(value['messages']) > 0:
+            last_msg = value['messages'][-1]
+            if isinstance(last_msg, AIMessage):
+                print(last_msg.content)

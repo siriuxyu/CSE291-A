@@ -36,7 +36,7 @@ python agent-phase1/run_agent.py
 python agent-phase1/run_agent.py --debug
 ```
 
-Note: The run script still uses imports from the main `agent/` directory, so it will reflect current implementations. To truly isolate this version, the imports would need to be adjusted.
+**Note:** This archived version uses its own isolated agent modules but shares the `tools/` directory from the project root. 
 
 ## Implementation Details
 

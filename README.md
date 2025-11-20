@@ -42,7 +42,21 @@ For testing and development, you can run the agent directly:
 python run_agent.py
 ```
 
-This will execute the example queries defined in `run_agent.py`.
+This provides an interactive Q&A interface. Type your questions and the agent will respond using available tools.
+
+#### Running Archived Agent Versions
+
+For comparison and benchmarking purposes, you can also run archived agent versions:
+
+```bash
+# Run Phase 1 archived agent
+python agent-phase1/run_agent.py
+
+# With debug mode
+python agent-phase1/run_agent.py --debug
+```
+
+See [agent-phase1/README.md](agent-phase1/README.md) for more details about the archived version.
 
 ### API Endpoints
 
@@ -151,14 +165,22 @@ docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your-key react-agent-server
 
 ```
 CSE291-A/
-├── agent/                      # Core agent implementation
+├── agent/                      # Core agent implementation (active)
 │   ├── __init__.py
 │   ├── graph.py               # Main agent graph definition
 │   ├── state.py               # State management for conversations
 │   ├── context.py             # Configurable context parameters
 │   ├── prompts.py             # System prompts
 │   └── utils.py               # Utility functions
-├── tools/                      # Agent tools
+├── agent-phase1/               # Phase 1 agent archive (for comparison)
+│   ├── graph.py               # Archived agent graph
+│   ├── context.py             # Archived context
+│   ├── state.py               # Archived state
+│   ├── utils.py               # Archived utils
+│   ├── prompts.py             # Archived prompts
+│   ├── run_agent.py           # Archived CLI runner
+│   └── README.md              # Archive documentation
+├── tools/                      # Agent tools (shared)
 │   ├── __init__.py
 │   ├── calculator.py          # Mathematical calculations
 │   ├── get_weather.py         # Weather information
@@ -166,15 +188,19 @@ CSE291-A/
 │   ├── web_reader.py          # Web content extraction
 │   └── file_system_search.py  # File system operations
 ├── server.py                   # FastAPI server entry point
-├── run_agent.py               # CLI agent runner
+├── run_agent.py               # CLI agent runner (active)
 ├── tests/                      # Test suite
 │   ├── __init__.py
-│   └── test_translation.py
+│   ├── test_translation.py
+│   ├── test_server.py
+│   └── test_cases.py
 ├── benchmark/                  # Benchmark datasets
 │   ├── short.json
 │   ├── medium.json
 │   ├── long.json
 │   └── locomo1.json
+├── logs/                       # Application logs
+├── Report/                     # Project reports
 ├── Dockerfile                  # Container configuration
 ├── requirements.txt            # Python dependencies
 └── README.md                   # This file

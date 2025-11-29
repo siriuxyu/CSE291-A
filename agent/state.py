@@ -9,6 +9,7 @@ from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
 from langgraph.managed import IsLastStep
 from typing_extensions import Annotated
+from agent.schemas import UserPreference
 
 
 @dataclass
@@ -58,3 +59,4 @@ class State(InputState):
     # retrieved_documents: List[Document] = field(default_factory=list)
     # extracted_entities: Dict[str, Any] = field(default_factory=dict)
     # api_connections: Dict[str, Any] = field(default_factory=dict)
+    extracted_preferences: list[UserPreference] = field(default_factory=list)

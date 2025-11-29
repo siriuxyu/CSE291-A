@@ -25,6 +25,7 @@ from .context import Context
 from .state import InputState, State
 from .utils import get_logger, load_chat_model
 from tools import TOOLS
+from .preference import extract_preferences
 
 # Import checkpointers
 try:
@@ -162,6 +163,9 @@ builder = StateGraph(State, input_schema=InputState, context_schema=Context)
 builder.add_node(call_model)
 builder.add_node("tools", ToolNode(TOOLS))
 
+# new node
+builder.add_node("extract_preferences", extract_preferences)
+
 # Set the entrypoint as `call_model`
 # This means that this node is the first one called
 builder.add_edge("__start__", "call_model")
@@ -196,11 +200,11 @@ def route_model_output(state: State) -> Literal["__end__", "tools"]:
     
     # If there is no tool call, then we finish
     if not has_tool_calls:
-        logger.info("No tool calls detected, ending conversation", extra={
+        logger.info("No tool calls detected, routing to preference extraction", extra={
             'function': 'route_model_output',
-            'details': {'next_node': '__end__'}
+            'details': {'next_node': 'extract_preferences'}
         })
-        return "__end__"
+        return "extract_preferences"
     
     # Otherwise we execute the requested actions
     logger.info("Tool calls detected, routing to tools", extra={
@@ -222,11 +226,14 @@ builder.add_conditional_edges(
     # After call_model finishes running, the next node(s) are scheduled
     # based on the output from route_model_output
     route_model_output,
+    {"tools": "tools", "extract_preferences": "extract_preferences"}
 )
 
 # Add a normal edge from `tools` to `call_model`
 # This creates a cycle: after using tools, we always return to the model
 builder.add_edge("tools", "call_model")
+
+builder.add_edge("extract_preferences", "__end__")
 
 # Set up checkpoint storage
 redis_url = os.environ.get("REDIS_URL")

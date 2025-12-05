@@ -36,6 +36,14 @@ class Context:
         },
     )
 
+    user_id: str = field(
+        default="",
+        metadata={
+            "description": "The user identifier for memory operations. "
+            "Used to namespace LangMem tools for user-specific memory."
+        },
+    )
+
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         for f in fields(self):

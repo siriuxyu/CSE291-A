@@ -27,7 +27,7 @@ Make sure the server is running, e.g.:
 
 Example usage:
 
-    python benchmark_runner.py --dataset short
+    python benchmark_runner.py --dataset short -o short_results.json
     python benchmark_runner.py --dataset locomo
 
 You can override server URL, model, etc. via CLI flags or environment:
@@ -278,6 +278,31 @@ def call_agent(
     final_response = data.get("final_response", "")
     messages_out = data.get("messages", [])
     return final_response, messages_out
+
+
+def reset_short_term_session(
+    server_url: str,
+    userid: str,
+    timeout: float,
+    preserve_memory: bool = True,
+) -> Dict[str, Any]:
+    """
+    Reset the short-term session for a user via the /reset endpoint.
+    
+    Args:
+        server_url: Base URL of the agent server
+        userid: User identifier
+        timeout: HTTP timeout in seconds
+        preserve_memory: If True, keep long-term memories intact
+        
+    Returns:
+        Response from the server
+    """
+    url = f"{server_url.rstrip('/')}/reset/{userid}"
+    params = {"preserve_memory": preserve_memory}
+    resp = requests.post(url, params=params, timeout=timeout)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def run_tool_benchmark(
@@ -753,6 +778,13 @@ def main(argv: Optional[List[str]] = None) -> None:
         action="store_true",
         help="Print per-case details.",
     )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        default=None,
+        help="Output file path for results JSON (default: benchmark_results_{dataset}.json).",
+    )
 
     args = parser.parse_args(argv)
 
@@ -788,10 +820,30 @@ def main(argv: Optional[List[str]] = None) -> None:
             verbose=args.verbose,
         )
 
-    # You could dump stats to JSON here if desired, but for now we just
-    # rely on stdout for simple reporting.
     if not stats:
         sys.exit(1)
+
+    # Save results to JSON file
+    output_file = args.output
+    if output_file is None:
+        output_file = f"benchmark_results_{args.dataset}.json"
+    
+    # Add metadata to results
+    results_with_meta = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "dataset": args.dataset,
+        "server_url": args.server_url,
+        "model": args.model,
+        "system_prompt": args.system_prompt,
+        "max_search_results": args.max_search_results,
+        "limit": args.limit,
+        **stats,
+    }
+    
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(results_with_meta, f, ensure_ascii=False, indent=2)
+    
+    print(f"\nResults saved to: {output_file}")
 
 
 if __name__ == "__main__":

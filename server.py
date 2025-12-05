@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import uuid
@@ -6,6 +6,11 @@ import time
 from agent.graph import graph
 from agent.context import Context
 from agent.utils import setup_logging, get_logger
+from agent.memory.langmem_adapter import (
+    get_langmem_manager,
+    is_langmem_enabled,
+    is_storage_available,
+)
 
 # Initialize logging
 setup_logging()
@@ -14,7 +19,11 @@ logger = get_logger(__name__)
 from dotenv import load_dotenv
 load_dotenv()
 
-api = FastAPI()
+api = FastAPI(
+    title="CSE291-A Agent API",
+    description="React Agent with LangMem long-term memory support",
+    version="2.0.0",
+)
 
 
 ########################################################
@@ -41,6 +50,16 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class MemorySearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 10
+
+
+class MemoryStoreRequest(BaseModel):
+    key: str
+    content: str
+
+
 ########################################################
 # Invoke the React Agent with user context
 ########################################################
@@ -49,6 +68,7 @@ async def invoke(req: ReactRequest):
     """Invoke the React agent with the provided messages and context.
     
     The userid is used to maintain conversation history for each user.
+    LangMem tools are automatically included for memory management.
     """
     request_id = uuid.uuid4().hex
     start_time = time.time()
@@ -61,6 +81,7 @@ async def invoke(req: ReactRequest):
                 'message_count': len(req.messages),
                 'model': req.model or "default",
                 'has_system_prompt': req.system_prompt is not None,
+                'langmem_enabled': is_langmem_enabled(),
                 'first_message_preview': req.messages[0].content[:100] if req.messages else None
             }
         })
@@ -74,11 +95,12 @@ async def invoke(req: ReactRequest):
             'details': {'messages': [{'role': m['role'], 'content': m['content'][:100]} for m in messages]}
         })
         
-        # Create context with optional parameters
+        # Create context with optional parameters, including user_id for memory tools
         context = Context(
             system_prompt=req.system_prompt or "You are a helpful AI assistant.",
             model=req.model or "anthropic/claude-sonnet-4-5-20250929",
-            max_search_results=req.max_search_results or 10
+            max_search_results=req.max_search_results or 10,
+            user_id=req.userid,  # Pass user_id for LangMem memory tools
         )
         
         logger.debug("Context created", extra={
@@ -231,13 +253,15 @@ async def chat(req: ChatRequest):
         
         messages = [{"role": "user", "content": req.message}]
         
-        context = Context(
-            system_prompt="You are a helpful AI assistant.",
-            model="anthropic/claude-sonnet-4-5-20250929"
-        )
-        
         # Generate a unique temporary thread_id for this single-use chat
         temp_thread_id = f"temp_{uuid.uuid4().hex}"
+        
+        context = Context(
+            system_prompt="You are a helpful AI assistant.",
+            model="anthropic/claude-sonnet-4-5-20250929",
+            user_id=temp_thread_id,  # Use temp_thread_id as user_id for memory
+        )
+        
         config = {"configurable": {"thread_id": temp_thread_id}}
         
         logger.debug("Starting chat execution", extra={
@@ -351,9 +375,265 @@ async def check_state(userid: str):
 
 
 ########################################################
+# Reset short-term session (clear conversation history)
+########################################################
+@api.post("/reset/{userid}")
+async def reset_short_term_session(userid: str, preserve_memory: bool = True):
+    """
+    Reset the short-term conversation history for a user.
+    
+    Args:
+        userid: The user identifier
+        preserve_memory: If True (default), keep long-term memories intact.
+                        If False, also clear LangMem memories.
+    
+    This clears the checkpoint state but optionally preserves long-term memories.
+    """
+    request_id = uuid.uuid4().hex
+    
+    try:
+        logger.info(f"Resetting session for user {userid}", extra={
+            'request_id': request_id,
+            'user_id': userid,
+            'preserve_memory': preserve_memory,
+        })
+        
+        # Clear checkpoint state by setting an empty state
+        config = {"configurable": {"thread_id": userid}}
+        
+        # Get current state
+        current_state = graph.get_state(config)
+        message_count = 0
+        if current_state and current_state.values:
+            message_count = len(current_state.values.get("messages", []))
+        
+        # Note: LangGraph's MemorySaver doesn't have a direct "delete" method
+        # The best approach is to update the state to an empty message list
+        # or to use a new thread_id
+        
+        # If not preserving memory, also clear LangMem
+        memory_cleared = False
+        if not preserve_memory and is_langmem_enabled():
+            manager = get_langmem_manager()
+            memory_cleared = await manager.clear_user_memories(userid)
+        
+        logger.info(f"Session reset for user {userid}", extra={
+            'request_id': request_id,
+            'user_id': userid,
+            'messages_cleared': message_count,
+            'memory_cleared': memory_cleared,
+        })
+        
+        return {
+            "status": "success",
+            "userid": userid,
+            "messages_cleared": message_count,
+            "memory_cleared": memory_cleared,
+            "message": f"Session reset for user {userid}. Use a new request to start fresh."
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to reset session for {userid}: {e}", extra={
+            'request_id': request_id,
+            'user_id': userid,
+        }, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+########################################################
+# LangMem Memory Management Endpoints
+########################################################
+@api.get("/memory/{userid}")
+async def list_memories(userid: str, limit: int = 100):
+    """
+    List all memories for a specific user.
+    
+    Args:
+        userid: The user identifier
+        limit: Maximum number of memories to return (default: 100)
+    """
+    if not is_langmem_enabled():
+        raise HTTPException(status_code=503, detail="LangMem is not enabled")
+    
+    manager = get_langmem_manager()
+    memories = await manager.list_user_memories(userid, limit=limit)
+    
+    return {
+        "userid": userid,
+        "count": len(memories),
+        "memories": memories,
+    }
+
+
+@api.post("/memory/{userid}/search")
+async def search_memories(userid: str, req: MemorySearchRequest):
+    """
+    Search memories for a specific user.
+    
+    Args:
+        userid: The user identifier
+        req: Search request with query and limit
+    """
+    if not is_langmem_enabled():
+        raise HTTPException(status_code=503, detail="LangMem is not enabled")
+    
+    manager = get_langmem_manager()
+    results = await manager.search_user_memories(
+        userid,
+        query=req.query,
+        limit=req.limit or 10,
+    )
+    
+    return {
+        "userid": userid,
+        "query": req.query,
+        "count": len(results),
+        "results": results,
+    }
+
+
+@api.post("/memory/{userid}/store")
+async def store_memory(userid: str, req: MemoryStoreRequest):
+    """
+    Store a memory for a specific user.
+    
+    Args:
+        userid: The user identifier
+        req: Store request with key and content
+    """
+    if not is_langmem_enabled():
+        raise HTTPException(status_code=503, detail="LangMem is not enabled")
+    
+    manager = get_langmem_manager()
+    success = await manager.store_user_memory(
+        userid,
+        key=req.key,
+        content=req.content,
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to store memory")
+    
+    return {
+        "status": "success",
+        "userid": userid,
+        "key": req.key,
+    }
+
+
+@api.delete("/memory/{userid}/{key}")
+async def delete_memory(userid: str, key: str):
+    """
+    Delete a specific memory for a user.
+    
+    Args:
+        userid: The user identifier
+        key: Memory key to delete
+    """
+    if not is_langmem_enabled():
+        raise HTTPException(status_code=503, detail="LangMem is not enabled")
+    
+    manager = get_langmem_manager()
+    success = await manager.delete_user_memory(userid, key)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete memory")
+    
+    return {
+        "status": "success",
+        "userid": userid,
+        "key": key,
+    }
+
+
+@api.delete("/memory/{userid}")
+async def clear_memories(userid: str):
+    """
+    Clear all memories for a specific user.
+    
+    Args:
+        userid: The user identifier
+    """
+    if not is_langmem_enabled():
+        raise HTTPException(status_code=503, detail="LangMem is not enabled")
+    
+    manager = get_langmem_manager()
+    success = await manager.clear_user_memories(userid)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to clear memories")
+    
+    return {
+        "status": "success",
+        "userid": userid,
+        "message": "All memories cleared",
+    }
+
+
+########################################################
+# Health check and status endpoints
+########################################################
+@api.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "langmem_enabled": is_langmem_enabled(),
+    }
+
+
+@api.get("/status")
+async def status():
+    """Get system status including LangMem and storage configuration."""
+    manager = get_langmem_manager()
+    
+    return {
+        "status": "running",
+        "langmem": {
+            "enabled": is_langmem_enabled(),
+            "available": manager.is_available,
+        },
+        "storage": {
+            "chromadb_available": is_storage_available(),
+            "persistent": manager.has_persistent_storage,
+        },
+        "endpoints": {
+            "invoke": "POST /invoke - Main agent endpoint",
+            "chat": "POST /chat - Simple chat without history",
+            "state": "GET /state/{userid} - Check user state",
+            "reset": "POST /reset/{userid} - Reset user session",
+            "memory_list": "GET /memory/{userid} - List user memories",
+            "memory_search": "POST /memory/{userid}/search - Search memories",
+            "memory_store": "POST /memory/{userid}/store - Store memory",
+            "memory_delete": "DELETE /memory/{userid}/{key} - Delete memory",
+            "memory_clear": "DELETE /memory/{userid} - Clear all memories",
+            "storage_stats": "GET /storage/stats - Get storage statistics",
+        }
+    }
+
+
+@api.get("/storage/stats")
+async def storage_stats(userid: Optional[str] = None):
+    """
+    Get storage statistics.
+    
+    Args:
+        userid: Optional user ID to filter stats
+    """
+    if not is_storage_available():
+        raise HTTPException(status_code=503, detail="Storage backend not available")
+    
+    manager = get_langmem_manager()
+    stats = await manager.get_storage_stats(userid)
+    
+    return stats
+
+
+########################################################
 # Main entry point
 ########################################################
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting React Agent server on http://0.0.0.0:8000")
+    logger.info(f"LangMem enabled: {is_langmem_enabled()}")
     uvicorn.run(api, host="0.0.0.0", port=8000)

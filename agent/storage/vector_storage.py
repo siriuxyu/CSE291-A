@@ -190,15 +190,17 @@ class VectorStorageBackend:
     ) -> List[SearchResult]:
         """Search using pre-computed embedding"""
         
-        # Build filter criteria
-        where_clause = {"user_id": user_id}
+        # Build filter criteria - ChromaDB requires $and for multiple conditions
+        conditions = [{"user_id": user_id}]
         
         if document_types:
             types_vals = [t.value for t in document_types]
             if len(types_vals) == 1:
-                where_clause["document_type"] = types_vals[0]
+                conditions.append({"document_type": types_vals[0]})
             else:
-                where_clause["document_type"] = {"$in": types_vals}
+                conditions.append({"document_type": {"$in": types_vals}})
+        
+        where_clause = {"$and": conditions} if len(conditions) > 1 else conditions[0]
 
         try:
             results = self.collection.query(
@@ -263,14 +265,17 @@ class VectorStorageBackend:
         document_types: Optional[List[StorageType]] = None,
     ) -> List[StorageDocument]:
         """Retrieve all documents for a session"""
-        where_clause = {"session_id": session_id, "user_id": user_id}
+        # ChromaDB requires $and for multiple conditions
+        conditions = [{"session_id": session_id}, {"user_id": user_id}]
         
         if document_types:
             types_vals = [t.value for t in document_types]
             if len(types_vals) == 1:
-                where_clause["document_type"] = types_vals[0]
+                conditions.append({"document_type": types_vals[0]})
             else:
-                where_clause["document_type"] = {"$in": types_vals}
+                conditions.append({"document_type": {"$in": types_vals}})
+        
+        where_clause = {"$and": conditions}
 
         try:
             results = self.collection.get(
@@ -299,14 +304,18 @@ class VectorStorageBackend:
     ) -> List[StorageDocument]:
         """Retrieve long-term contexts for a user"""
         # Contexts usually refer to Summary or Long Term Memory
-        where_clause = {"user_id": user_id}
+        # ChromaDB requires $and for multiple conditions
+        conditions = [{"user_id": user_id}]
         
         if document_types:
             types_vals = [t.value for t in document_types]
             if len(types_vals) == 1:
-                where_clause["document_type"] = types_vals[0]
+                conditions.append({"document_type": types_vals[0]})
             else:
-                where_clause["document_type"] = {"$in": types_vals}
+                conditions.append({"document_type": {"$in": types_vals}})
+        
+        # Use $and if multiple conditions, otherwise just the single condition
+        where_clause = {"$and": conditions} if len(conditions) > 1 else conditions[0]
 
         try:
             results = self.collection.get(
@@ -385,11 +394,14 @@ class VectorStorageBackend:
         self, session_id: str, user_id: str, preserve_summaries: bool = True
     ) -> int:
         """Delete all documents for a session"""
-        where_clause = {"session_id": session_id, "user_id": user_id}
+        # ChromaDB requires $and for multiple conditions
+        conditions = [{"session_id": session_id}, {"user_id": user_id}]
         
         if preserve_summaries:
             # Do not delete SUMMARY type
-            where_clause["document_type"] = {"$ne": StorageType.SESSION_SUMMARY.value}
+            conditions.append({"document_type": {"$ne": StorageType.SESSION_SUMMARY.value}})
+        
+        where_clause = {"$and": conditions}
 
         try:
             # Chroma delete does not return count, so this is best-effort

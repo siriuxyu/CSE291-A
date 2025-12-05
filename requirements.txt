@@ -3,6 +3,17 @@ langchain>=0.3.0
 langchain-core>=0.3.0
 langgraph>=0.2.0
 
+# LangMem for long-term memory management
+langmem>=0.0.14
+langchain-openai>=0.3.0  # Required for embeddings
+
+# ChromaDB for persistent vector storage (used by storage/ module)
+chromadb>=0.4.0
+openai>=1.0.0  # For OpenAI embeddings
+
+# Optional: sentence-transformers for local embeddings
+# sentence-transformers>=2.2.0
+
 # Anthropic provider for Claude models
 langchain-anthropic>=0.3.0
 anthropic>=0.40.0
@@ -36,3 +47,9 @@ fastapi>=0.104.0
 uvicorn>=0.24.0
 redis>=5.0.0
 pydantic>=2.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# HTTP client for benchmark runners
+requests>=2.31.0

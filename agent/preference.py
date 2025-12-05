@@ -1,7 +1,7 @@
 import time
-from typing import Dict, Any, cast
+from typing import Dict, Any, List, cast
 
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage, BaseMessage
 from langgraph.runtime import Runtime
 
 from agent.context import Context
@@ -11,6 +11,30 @@ from agent.schemas import UserProfileUpdate
 from agent.prompts import PREFERENCE_EXTRACTION_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
+
+
+def filter_messages_for_extraction(messages: List[BaseMessage]) -> List[BaseMessage]:
+    """
+    Filter messages to only include Human and AI messages (without tool calls).
+    This avoids the 'unexpected tool_use_id' error from incomplete tool sequences.
+    """
+    filtered = []
+    for msg in messages:
+        # Skip ToolMessages entirely
+        if isinstance(msg, ToolMessage):
+            continue
+        # For AIMessages, only include if they don't have tool_calls
+        if isinstance(msg, AIMessage):
+            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                # Skip AI messages that contain tool calls
+                continue
+            # Include AI message content only if it has actual content
+            if msg.content:
+                filtered.append(msg)
+        else:
+            # Include HumanMessage and others
+            filtered.append(msg)
+    return filtered
 
 
 async def extract_preferences(
@@ -25,17 +49,21 @@ async def extract_preferences(
     model = load_chat_model(runtime.context.model)
     structured_llm = model.with_structured_output(UserProfileUpdate)
 
-    # 2. prepare recent Messages
+    # 2. prepare recent Messages - filter out tool-related messages
     recent_messages = state.messages[-10:]
+    filtered_messages = filter_messages_for_extraction(recent_messages)
 
     messages_for_extraction = [
         SystemMessage(content=PREFERENCE_EXTRACTION_SYSTEM_PROMPT),
-        *recent_messages
+        *filtered_messages
     ]
 
     logger.info("Starting preference extraction", extra={
         'function': 'extract_preferences',
-        'details': {'message_count': len(recent_messages)}
+        'details': {
+            'raw_message_count': len(recent_messages),
+            'filtered_message_count': len(filtered_messages),
+        }
     })
 
     try:

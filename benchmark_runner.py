@@ -254,9 +254,21 @@ def call_agent(
     model: Optional[str],
     max_search_results: Optional[int],
     timeout: float,
+    thread_id: Optional[str] = None,
 ) -> Tuple[str, List[Dict[str, Any]]]:
     """
     Call the /invoke endpoint of the agent server.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content'
+        server_url: Base URL of the agent server
+        userid: User ID for memory tools (consistent per user)
+        system_prompt: Optional system prompt
+        model: Optional model name
+        max_search_results: Optional max search results
+        timeout: HTTP timeout in seconds
+        thread_id: Optional separate thread ID for message history (defaults to userid)
+                   Use a unique thread_id per batch to avoid message history pollution.
 
     Returns (final_response, messages_from_agent).
     """
@@ -264,6 +276,8 @@ def call_agent(
         "messages": messages,
         "userid": userid,
     }
+    if thread_id:
+        payload["thread_id"] = thread_id
     if system_prompt:
         payload["system_prompt"] = system_prompt
     if model:

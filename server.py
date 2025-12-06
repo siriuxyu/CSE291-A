@@ -12,6 +12,12 @@ from agent.memory.langmem_adapter import (
     is_storage_available,
 )
 
+# Import LangGraph errors for proper handling
+try:
+    from langgraph.errors import GraphRecursionError
+except ImportError:
+    GraphRecursionError = None  # type: ignore
+
 # Initialize logging
 setup_logging()
 logger = get_logger(__name__)
@@ -35,7 +41,8 @@ class Message(BaseModel):
 
 class ReactRequest(BaseModel):
     messages: List[Message]
-    userid: str  # Required for context history
+    userid: str  # Required for context history and memory tools
+    thread_id: Optional[str] = None  # Optional: separate thread_id for message history (defaults to userid)
     system_prompt: Optional[str] = None
     model: Optional[str] = None
     max_search_results: Optional[int] = None
@@ -95,17 +102,23 @@ async def invoke(req: ReactRequest):
             'details': {'messages': [{'role': m['role'], 'content': m['content'][:100]} for m in messages]}
         })
         
+        # Use thread_id if provided, otherwise fall back to userid
+        # thread_id: for LangGraph message history (can be unique per batch)
+        # userid: for memory tools (should be consistent for same user's memories)
+        thread_id = req.thread_id or req.userid
+        
         # Create context with optional parameters, including user_id for memory tools
         context = Context(
             system_prompt=req.system_prompt or "You are a helpful AI assistant.",
             model=req.model or "anthropic/claude-sonnet-4-5-20250929",
             max_search_results=req.max_search_results or 10,
-            user_id=req.userid,  # Pass user_id for LangMem memory tools
+            user_id=req.userid,  # Pass user_id for LangMem memory tools (NOT thread_id)
         )
         
         logger.debug("Context created", extra={
             'request_id': request_id,
             'user_id': req.userid,
+            'thread_id': thread_id,
             'details': {
                 'system_prompt': context.system_prompt,
                 'model': context.model,
@@ -113,8 +126,8 @@ async def invoke(req: ReactRequest):
             }
         })
         
-        # Configure thread for user context history
-        config = {"configurable": {"thread_id": req.userid}}
+        # Configure thread for user context history (uses thread_id, NOT userid)
+        config = {"configurable": {"thread_id": thread_id}}
         
         # Stream the response from the graph
         response_messages = []
@@ -222,6 +235,24 @@ async def invoke(req: ReactRequest):
         
     except Exception as e:
         duration_ms = (time.time() - start_time) * 1000
+        
+        # Check if it's a GraphRecursionError (agent called tools too many times)
+        is_recursion_error = (
+            GraphRecursionError is not None and isinstance(e, GraphRecursionError)
+        ) or "GraphRecursionError" in type(e).__name__ or "recursion limit" in str(e).lower()
+        
+        if is_recursion_error:
+            logger.warning("Agent hit recursion limit", extra={
+                'request_id': request_id,
+                'user_id': req.userid,
+                'duration_ms': round(duration_ms, 2),
+                'error_type': 'GraphRecursionError'
+            })
+            return ReactResponse(
+                messages=[],
+                final_response="Error: Agent reached maximum tool call limit (25 iterations). The question may be too complex or require information not available in memory."
+            )
+        
         logger.error("Request failed", extra={
             'request_id': request_id,
             'user_id': req.userid,

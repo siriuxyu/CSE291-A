@@ -7,8 +7,8 @@ from langgraph.runtime import Runtime
 from agent.context import Context
 from agent.state import State
 from agent.utils import load_chat_model, get_logger
-from agent.schemas import UserProfileUpdate
-from agent.prompts import PREFERENCE_EXTRACTION_SYSTEM_PROMPT
+from agent.extraction.schemas import UserProfileUpdate
+from agent.extraction.prompts import PREFERENCE_EXTRACTION_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 

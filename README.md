@@ -7,10 +7,11 @@ This project provides a FastAPI server for the React Agent, a LangGraph-based ag
 - **React Agent**: A reasoning and action agent powered by LangGraph
 - **Tool Integration**: Built-in tools for calculations, weather queries, translation, web reading, and file system search
 - **FastAPI Server**: RESTful API endpoints for agent interactions
+- **Session Management**: Persistent session tracking with automatic timeout ([docs](docs/session-management.md))
+- **Memory System**: Long-term user preference extraction and context enhancement
 - **CLI Interface**: Direct agent runner for testing and development
 - **Docker Support**: Containerized deployment ready
 - **Async Support**: Full async/await support for high performance
-- **State Management**: Conversation history and context tracking
 - **Logging**: Automatic logging to both console and file for debugging and monitoring
 
 ## Quick Start
@@ -66,11 +67,10 @@ Submit a conversation with multiple messages and get the complete agent response
 **Request Body:**
 ```json
 {
-  "messages": [
-    {"role": "user", "content": "What's the weather in San Diego?"},
-    {"role": "assistant", "content": "Let me check that for you."}
-  ],
+  "messages": [{"role": "user", "content": "What's the weather in San Diego?"}],
   "userid": "user123",
+  "session_id": "user123_a1b2c3d4",
+  "force_new_session": false,
   "system_prompt": "You are a helpful AI assistant.",
   "model": "anthropic/claude-sonnet-4-5-20250929",
   "max_search_results": 10
@@ -79,29 +79,19 @@ Submit a conversation with multiple messages and get the complete agent response
 
 **Parameters:**
 - `messages`: List of conversation messages
-- `userid`: Required. User ID for maintaining conversation history
+- `userid`: Required. User identifier
+- `session_id`: Optional. Session ID to continue existing conversation
+- `force_new_session`: Optional. Force create new session (default: false)
 - `system_prompt`: Optional. Custom system prompt
 - `model`: Optional. Model to use (default: anthropic/claude-sonnet-4-5-20250929)
 - `max_search_results`: Optional. Maximum search results (default: 10)
 
-Response:
+**Response:**
 ```json
 {
-  "messages": [
-    {
-      "role": "assistant",
-      "content": "I'll check the weather in San Diego for you.",
-      "tool_calls": [{"name": "get_weather", "args": {"city": "San Diego"}}]
-    },
-    {
-      "role": "tool",
-      "content": "Sunny, 75°F"
-    },
-    {
-      "role": "assistant", 
-      "content": "The weather in San Diego is sunny with a temperature of 75°F."
-    }
-  ],
+  "user_id": "user123",
+  "session_id": "user123_a1b2c3d4",
+  "messages": [...],
   "final_response": "The weather in San Diego is sunny with a temperature of 75°F."
 }
 ```
@@ -126,21 +116,38 @@ For single message interactions without conversation history:
 }
 ```
 
-#### 3. Check State (`GET /state/{userid}`)
-Check the conversation state for a specific user:
+#### 3. Get User Sessions (`GET /sessions/{userid}`)
+Get all sessions for a user. See [Session Management](docs/session-management.md) for details.
 
 **Response:**
 ```json
 {
   "userid": "user123",
+  "total_sessions": 3,
+  "active_sessions": 1,
+  "sessions": [
+    {
+      "session_id": "user123_a1b2c3d4",
+      "last_activity": "2025-01-15T10:30:00",
+      "is_active": true,
+      "minutes_since_activity": 5
+    }
+  ]
+}
+```
+
+#### 4. Check Session State (`GET /state/{session_id}`)
+Check the conversation state for a specific session:
+
+**Response:**
+```json
+{
+  "session_id": "user123_a1b2c3d4",
   "state": {...},
   "next_node": "call_model",
   "config": {...}
 }
 ```
-
-**Parameters:**
-- `userid`: Path parameter. User ID to check state for
 
 ### Available Tools
 
@@ -165,54 +172,47 @@ docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your-key react-agent-server
 
 ```
 CSE291-A/
-├── agent/                      # Core agent implementation (active)
-│   ├── __init__.py
-│   ├── graph.py               # Main agent graph definition
-│   ├── state.py               # State management for conversations
-│   ├── context.py             # Configurable context parameters
+├── agent/                      # Core agent implementation
+│   ├── interfaces/            # Interface definitions
+│   │   ├── memory_interface.py
+│   │   ├── storage_interface.py
+│   │   ├── extraction_interface.py
+│   │   └── README.md          # Interface documentation
+│   ├── memory/                # Memory management
+│   │   └── manager.py         # Context memory manager
+│   ├── extraction/            # Preference extraction
+│   │   ├── preference.py      # Extraction logic
+│   │   ├── schemas.py         # Data models
+│   │   └── prompts.py         # Extraction prompts
+│   ├── graph.py               # Main agent graph
+│   ├── state.py               # State management
+│   ├── context.py             # Context configuration
 │   ├── prompts.py             # System prompts
-│   └── utils.py               # Utility functions
-├── agent-phase1/               # Phase 1 agent archive (for comparison)
-│   ├── graph.py               # Archived agent graph
-│   ├── context.py             # Archived context
-│   ├── state.py               # Archived state
-│   ├── utils.py               # Archived utils
-│   ├── prompts.py             # Archived prompts
-│   ├── run_agent.py           # Archived CLI runner
-│   └── README.md              # Archive documentation
-├── tools/                      # Agent tools (shared)
-│   ├── __init__.py
-│   ├── calculator.py          # Mathematical calculations
-│   ├── get_weather.py         # Weather information
-│   ├── translator.py          # Text translation
-│   ├── web_reader.py          # Web content extraction
-│   └── file_system_search.py  # File system operations
-├── server.py                   # FastAPI server entry point
-├── run_agent.py               # CLI agent runner (active)
+│   └── utils.py               # Utilities
+├── tools/                      # Agent tools
+│   ├── calculator.py
+│   ├── get_weather.py
+│   ├── translator.py
+│   ├── web_reader.py
+│   └── file_system_search.py
+├── docs/                       # Documentation
+│   └── session-management.md  # Session management guide
 ├── tests/                      # Test suite
-│   ├── __init__.py
-│   ├── test_translation.py
-│   ├── test_server.py
-│   └── test_cases.py
 ├── benchmark/                  # Benchmark datasets
-│   ├── short.json
-│   ├── medium.json
-│   ├── long.json
-│   └── locomo1.json
 ├── logs/                       # Application logs
-├── Report/                     # Project reports
-├── Dockerfile                  # Container configuration
-├── requirements.txt            # Python dependencies
+├── server.py                   # FastAPI server
+├── run_agent.py               # CLI runner
+├── Dockerfile                  # Container config
 └── README.md                   # This file
 ```
 
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY`: API key for Claude models (required)
+- `SESSION_TIMEOUT_MINUTES`: Session timeout in minutes (default: 30)
 - `SYSTEM_PROMPT`: Default system prompt (optional)
 - `MODEL`: Default model to use (optional)
 - `MAX_SEARCH_RESULTS`: Maximum search results (optional)
-- `REDIS_URL`: Redis connection URL for persistent state storage (optional)
 
 ## Logging
 

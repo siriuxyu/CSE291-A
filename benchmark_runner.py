@@ -319,6 +319,166 @@ def reset_short_term_session(
     return resp.json()
 
 
+def store_memory(
+    server_url: str,
+    userid: str,
+    key: str,
+    content: str,
+    timeout: float,
+) -> bool:
+    """Store a memory via the /memory API."""
+    url = f"{server_url.rstrip('/')}/memory/{userid}/store"
+    try:
+        resp = requests.post(
+            url,
+            json={"key": key, "content": content},
+            timeout=timeout,
+        )
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"[WARN] Failed to store memory {key}: {e}")
+        return False
+
+
+def process_session_setup(
+    session_setup: Dict[str, Any],
+    userid: str,
+    *,
+    server_url: str,
+    system_prompt: Optional[str],
+    model: Optional[str],
+    max_search_results: Optional[int],
+    timeout: float,
+    verbose: bool,
+) -> Dict[str, Any]:
+    """
+    Process session_setup by:
+    1. Resetting the session (preserving memory) to ensure clean message history
+    2. Storing preferences via /memory API
+    3. Sending conversation_log messages to the agent to establish context
+    
+    Returns a dict with setup results.
+    """
+    setup_result = {
+        "preferences_stored": [],
+        "preferences_failed": [],
+        "conversation_log_processed": False,
+    }
+    
+    # Step 0: Reset session to ensure clean message history (but preserve memory)
+    # This prevents issues with incomplete tool calls from previous interactions
+    try:
+        reset_short_term_session(server_url, userid, timeout, preserve_memory=True)
+        if verbose:
+            print(f"  [session_setup] Reset session for clean message history")
+    except Exception as e:
+        if verbose:
+            print(f"  [session_setup] Warning: Failed to reset session: {e}")
+    
+    # Step 1: Store preferences and inform the agent
+    stored_preferences = session_setup.get("stored_preferences", [])
+    preference_list = []
+    
+    for pref in stored_preferences:
+        key = pref.get("key", "")
+        value = pref.get("value", "")
+        
+        # Convert value to string if it's a list or other type
+        if isinstance(value, list):
+            content = ", ".join(str(v) for v in value)
+        else:
+            content = str(value)
+        
+        # Store as "key: value" format for better searchability
+        memory_content = f"{key}: {content}"
+        
+        success = store_memory(server_url, userid, key, memory_content, timeout)
+        if success:
+            setup_result["preferences_stored"].append(key)
+            preference_list.append(f"{key}: {content}")
+            if verbose:
+                print(f"  [session_setup] Stored preference: {key} = {content}")
+        else:
+            setup_result["preferences_failed"].append(key)
+            if verbose:
+                print(f"  [session_setup] Failed to store preference: {key}")
+    
+    # Step 1.5: Inform the agent about stored preferences
+    # This ensures the agent knows about these preferences and can use them
+    # We tell the agent these preferences are already stored, so it doesn't need to store them again
+    if preference_list:
+        preferences_text = "\n".join(f"- {pref}" for pref in preference_list)
+        preferences_message = (
+            "I want to share some of my preferences with you. These preferences have already been stored in your memory system, so you don't need to store them again. Just remember them for our conversation:\n\n"
+            + preferences_text +
+            "\n\nThese preferences are already saved, so please just acknowledge that you understand them."
+        )
+        try:
+            final_response, messages_out = call_agent(
+                [{"role": "user", "content": preferences_message}],
+                server_url=server_url,
+                userid=userid,
+                system_prompt=system_prompt,
+                model=model,
+                max_search_results=max_search_results,
+                timeout=timeout,
+            )
+            if verbose:
+                print(f"  [session_setup] Informed agent about {len(preference_list)} preferences")
+        except Exception as e:
+            if verbose:
+                print(f"  [session_setup] Failed to inform agent about preferences: {e}")
+            # If informing the agent fails, we still continue with conversation_log
+    
+    # Step 1.6: Reset session before processing conversation_log to ensure clean message history
+    # This prevents issues with incomplete tool calls from preference setup
+    # Memory is preserved, so preferences remain accessible via search_memory
+    if preference_list or session_setup.get("conversation_log"):
+        try:
+            reset_short_term_session(server_url, userid, timeout, preserve_memory=True)
+            if verbose:
+                print(f"  [session_setup] Reset session before conversation_log (memory preserved)")
+        except Exception as e:
+            if verbose:
+                print(f"  [session_setup] Warning: Failed to reset session before conversation_log: {e}")
+    
+    # Step 2: Process conversation_log to establish context
+    # LangGraph maintains conversation history per thread_id (which defaults to userid)
+    # So we send each user message sequentially, and LangGraph will maintain the history
+    conversation_log = session_setup.get("conversation_log", [])
+    if conversation_log:
+        for turn in conversation_log:
+            role = (turn.get("role") or "").lower()
+            content = turn.get("content", "")
+            
+            if not content:
+                continue
+            
+            if role == "user":
+                # Send user message to agent
+                # LangGraph will maintain conversation history using the same userid/thread_id
+                try:
+                    final_response, messages_out = call_agent(
+                        [{"role": "user", "content": content}],
+                        server_url=server_url,
+                        userid=userid,
+                        system_prompt=system_prompt,
+                        model=model,
+                        max_search_results=max_search_results,
+                        timeout=timeout,
+                    )
+                    if verbose:
+                        print(f"  [session_setup] Processed conversation log: {content[:50]}...")
+                except Exception as e:
+                    if verbose:
+                        print(f"  [session_setup] Failed to process conversation log: {e}")
+            # Note: We skip "agent_expected" messages as they're just for reference
+        
+        setup_result["conversation_log_processed"] = True
+    
+    return setup_result
+
+
 def run_tool_benchmark(
     dataset_name: str,
     path: str,
@@ -377,11 +537,32 @@ def run_tool_benchmark(
         case_id = tc.get("id", f"{dataset_name}_{idx}")
         expected_tools = set(tc.get("expected_tools") or [])
         conversation = tc.get("conversation") or []
+        session_setup = tc.get("session_setup")
         userid = f"{userid_prefix}_{dataset_name}_{idx}"
 
         if not conversation:
             print(f"[WARN] Skipping {case_id}: empty conversation.")
             continue
+
+        # Process session_setup if present (e.g., for inter_session_context_with_preference tests)
+        setup_result = None
+        if session_setup:
+            if verbose:
+                print(f"\n[{case_id}] Processing session_setup...")
+            try:
+                setup_result = process_session_setup(
+                    session_setup,
+                    userid,
+                    server_url=server_url,
+                    system_prompt=system_prompt,
+                    model=model,
+                    max_search_results=max_search_results,
+                    timeout=timeout,
+                    verbose=verbose,
+                )
+            except Exception as e:
+                print(f"[WARN] {case_id} session_setup failed: {e}")
+                setup_result = {"error": str(e)}
 
         try:
             turn_details, tool_counter_case, answers_expected, answers_correct_case = (
@@ -444,6 +625,7 @@ def run_tool_benchmark(
                 "all_answers_correct": case_answers_correct,
                 "conversation_turns": turn_details,
                 "session_metadata": session_meta,
+                "session_setup": setup_result,
             }
         )
 

@@ -12,7 +12,6 @@ eval_locomo.py
 eval.py
 chroma_db_data/
 locomo_batch_results.json
-locomo_memory_results.json
 locomo_batch_results_copy.json
 scripts/
 benchmark/convert.py

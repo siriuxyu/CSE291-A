@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This report presents the implementation and evaluation of an enhanced AI agent with context extraction and long-term memory capabilities. The system integrates ChromaDB vector storage, preference extraction, and user-specific memory management to improve response quality, personalization, and cross-session continuity. Experimental results demonstrate measurable improvements in task completion rates, response relevance, and user personalization across short, medium, and long conversation benchmarks.
+This report presents the implementation and evaluation of an enhanced AI agent with context extraction and long-term memory capabilities. The system integrates ChromaDB vector storage, preference extraction, and user-specific memory management to improve response quality, personalization, and cross-session continuity. Experimental results demonstrate measurable improvements in task completion rates, response relevance, and user personalization across short, medium, and long conversation benchmarks. The GitHub repo is [here](https://github.com/jason-huang-jason/ai-agent-with-context-and-memory).
 
 ---
 

@@ -18,7 +18,7 @@
     {
       "id": "test_002_weather",
       "type": "single_tool",
-      "expected_tools": ["weather_tool"],
+      "expected_tools": ["get_weather"],
       "conversation": [
         {
           "role": "user",

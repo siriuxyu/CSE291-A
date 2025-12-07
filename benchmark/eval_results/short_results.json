@@ -52,7 +52,7 @@
     {
       "id": "test_002_weather",
       "expected_tools": [
-        "weather_tool"
+        "get_weather"
       ],
       "used_tools": [
         "get_weather"

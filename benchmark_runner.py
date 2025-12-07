@@ -209,6 +209,11 @@ def process_conversation(
         )
         tools_this_turn = extract_tools_from_messages(messages_out)
         tool_counter.update(tools_this_turn)
+        
+        # Count tool calls per tool type for this turn
+        tool_call_counts = Counter(tools_this_turn)
+        used_tools_unique = sorted(set(tools_this_turn))
+        total_tool_calls_this_turn = len(tools_this_turn)
 
         ans_ok: Optional[bool] = None
         exp_content = expected_msg.get("content") if expected_msg else None
@@ -228,7 +233,9 @@ def process_conversation(
                 "final_response": final_response,
                 "answer_correct": ans_ok,
                 "latency_sec": latency,
-                "used_tools": sorted(set(tools_this_turn)),
+                "used_tools": used_tools_unique,
+                "tool_call_counts": dict(tool_call_counts),  # Count per tool type
+                "total_tool_calls": total_tool_calls_this_turn,  # Total calls in this turn
             }
         )
 
@@ -594,6 +601,9 @@ def run_tool_benchmark(
         used_tools = set(tool_counter_case.keys())
         tool_expected_counter.update(expected_tools)
         tool_used_counter.update(used_tools)
+        
+        # Calculate total tool calls across all turns for this case
+        total_tool_calls_case = sum(tool_counter_case.values())
 
         tools_subset_ok = expected_tools.issubset(used_tools) if expected_tools else True
         tools_exact_ok = used_tools == expected_tools if expected_tools else True
@@ -618,6 +628,8 @@ def run_tool_benchmark(
                 "id": case_id,
                 "expected_tools": sorted(expected_tools),
                 "used_tools": sorted(used_tools),
+                "tool_call_counts": dict(tool_counter_case),  # Count per tool type across all turns
+                "total_tool_calls": total_tool_calls_case,  # Total tool calls across all turns
                 "tools_subset_ok": tools_subset_ok,
                 "tools_exact_ok": tools_exact_ok,
                 "answers_expected": answers_expected,

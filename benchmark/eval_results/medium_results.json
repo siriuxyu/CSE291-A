@@ -74,7 +74,7 @@
     {
       "id": "test_007_trip_planning_context",
       "expected_tools": [
-        "weather_tool"
+        "get_weather"
       ],
       "used_tools": [
         "get_weather"

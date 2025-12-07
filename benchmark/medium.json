@@ -42,7 +42,7 @@
     {
       "id": "test_007_trip_planning_context",
       "type": "inter_session_context_with_preference",
-      "expected_tools": ["weather_tool"],
+      "expected_tools": ["get_weather"],
       "session_setup": {
         "description": "This is the previous session where the user set a preference that should be stored.",
         "stored_preferences": [

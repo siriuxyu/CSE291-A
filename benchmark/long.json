@@ -254,7 +254,8 @@
       "id": "test_033_web_reader_ev_headlines",
       "type": "intra_session_context_grounding",
       "expected_tools": [
-        "web_reader"
+        "web_reader",
+        "web_search"
       ],
       "conversation": [
         {

@@ -2,9 +2,9 @@
   "personas_run": 1,
   "total_chunks_stored": 144,
   "total_chars_stored": 67162,
-  "qa_accuracy_total": 35,
+  "qa_accuracy_total": 167,
   "qa_questions_total": 196,
-  "accuracy_percent": 17.857142857142858,
+  "accuracy_percent": 85.20408163265306,
   "category_totals": {
     "2": 37,
     "3": 11,

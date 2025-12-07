@@ -11,7 +11,7 @@
   "errors": 0,
   "tool_subset_correct": 2,
   "tool_exact_correct": 1,
-  "answer_correct": 3,
+  "answer_correct": 4,
   "per_case_results": [
     {
       "id": "test_030_weekend_planner_sf",
@@ -67,7 +67,7 @@
           "answer_correct": true,
           "latency_sec": 32.352627754211426,
           "used_tools": [
-            "web_searcher"
+            "web_search"
           ]
         },
         {
@@ -384,7 +384,7 @@
           "answer_correct": true,
           "latency_sec": 29.623940467834473,
           "used_tools": [
-            "web_searcher"
+            "web_search"
           ]
         },
         {

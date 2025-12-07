@@ -108,7 +108,7 @@
       "conversation": [
         {
           "role": "user",
-          "content": "Can you find a file related to 'OKR' in my files?"
+          "content": "Can you find a file related to 'locomo' in my files?"
         },
         {
           "role": "agent_expected",
@@ -120,7 +120,7 @@
         },
         {
           "role": "agent_expected",
-          "content": "Saved the reference to that path. Ask me for the “OKR file path” anytime."
+          "content": "Saved the reference to that path. Ask me for the “locomo file path” anytime."
         },
         {
           "role": "user",

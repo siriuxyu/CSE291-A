@@ -965,8 +965,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=60.0,
-        help="HTTP timeout per /invoke call in seconds (default: %(default)s).",
+        default=120.0,
+        help="HTTP timeout per /invoke call in seconds (default: %(default)s). "
+             "Increased default for web search operations.",
     )
     parser.add_argument(
         "-v",

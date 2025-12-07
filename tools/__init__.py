@@ -5,6 +5,7 @@ from .calculator import calculator
 from .get_weather import get_weather
 from .translator import translator
 from .web_reader import web_reader
+from .web_searcher import web_searcher
 from .file_system_search import file_system_search
 
 # Put them all into the TOOLS list
@@ -13,5 +14,6 @@ TOOLS: list[Callable[..., Any]] = [
     get_weather,
     translator,
     web_reader,
+    web_searcher,
     file_system_search
 ]

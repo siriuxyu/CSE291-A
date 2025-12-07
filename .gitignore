@@ -16,4 +16,4 @@ locomo_memory_results.json
 locomo_batch_results_copy.json
 scripts/
 benchmark/convert.py
-short_results.json
+locomo_checkpoint_final_20251205_192835.json

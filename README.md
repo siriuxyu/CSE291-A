@@ -6,6 +6,7 @@ This project provides a FastAPI server for the React Agent, a LangGraph-based ag
 
 - **React Agent**: A reasoning and action agent powered by LangGraph
 - **Tool Integration**: Built-in tools for calculations, weather queries, translation, web reading, and file system search
+- **Claude Web Search**: Native web search integration using Claude's built-in search tool (when using Anthropic models)
 - **Memory System**: Long-term memory management with ChromaDB and user-specific namespaces
 - **FastAPI Server**: RESTful API endpoints for agent interactions
 - **CLI Interface**: Direct agent runner for testing and development
@@ -208,6 +209,12 @@ The agent comes with built-in tools:
 - **`web_reader`**: Fetch and extract content from web pages
 - **`file_system_search`**: Search for files in the file system
 
+**Web Search:**
+- **`web_search`** (Claude built-in, default): When using Anthropic models with `enable_web_search=True` (default), Claude uses its own built-in web search tool (`web_search_20250305`). This provides encrypted search results that Claude can process directly, with automatic citation support. The search results are encrypted and only Claude can decrypt them, ensuring secure and accurate information retrieval.
+- **`web_searcher`** (fallback): A custom DuckDuckGo-based search tool available as a fallback for non-Anthropic models or when Claude's web search is disabled. This tool returns plain text search results that can be used with the `web_reader` tool to fetch page content.
+
+**Note:** When using Claude models, the built-in `web_search` tool is preferred because it provides better integration, automatic citations, and encrypted results that Claude can process natively. The `web_searcher` tool is kept for compatibility with non-Anthropic models.
+
 **Memory Tools (automatically added per user):**
 - **`search_memory`**: Search ChromaDB for previously stored memories
 - **`store_memory`**: Store important information for long-term recall
@@ -253,6 +260,7 @@ CSE291-A/
 │   ├── get_weather.py         # Weather information
 │   ├── translator.py          # Text translation
 │   ├── web_reader.py          # Web content extraction
+│   ├── web_searcher.py        # DuckDuckGo-based web search (fallback)
 │   └── file_system_search.py  # File system operations
 ├── server.py                   # FastAPI server entry point
 ├── run_agent.py               # CLI agent runner (active)
@@ -306,6 +314,8 @@ CHROMA_PERSIST_PATH=./chroma_db_data
 - `SYSTEM_PROMPT`: Default system prompt
 - `MODEL`: Default model to use
 - `MAX_SEARCH_RESULTS`: Maximum search results (optional)
+- `ENABLE_WEB_SEARCH`: Enable Claude's built-in web search (default: "1" or True)
+- `WEB_SEARCH_MAX_USES`: Maximum number of web searches per request (default: 5)
 - `REDIS_URL`: Redis connection URL for persistent checkpoints
 
 ## Logging

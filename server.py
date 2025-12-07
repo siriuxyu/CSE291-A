@@ -11,6 +11,7 @@ from agent.memory.langmem_adapter import (
     is_langmem_enabled,
     is_storage_available,
 )
+from langchain_core.messages import ToolMessage, AIMessage
 
 # Import LangGraph errors for proper handling
 try:
@@ -175,14 +176,85 @@ async def invoke(req: ReactRequest):
                 })
             
             for msg in msgs_to_process:
+                # Skip ToolMessage - these contain encrypted_content from web_search
+                # and should not be returned to the user
+                if isinstance(msg, ToolMessage):
+                    logger.debug("Skipping ToolMessage", extra={
+                        'request_id': request_id,
+                        'user_id': req.userid,
+                        'details': {
+                            'message_type': 'ToolMessage',
+                            'tool_call_id': getattr(msg, 'tool_call_id', None)
+                        }
+                    })
+                    continue
+                
                 # Get message content based on message type
-                msg_content = ""
+                msg_content_raw = ""
                 if hasattr(msg, 'content'):
-                    msg_content = msg.content
+                    msg_content_raw = msg.content
                 elif hasattr(msg, 'data') and 'content' in msg.data:
-                    msg_content = msg.data['content']
+                    msg_content_raw = msg.data['content']
                 else:
-                    msg_content = str(msg)
+                    msg_content_raw = str(msg)
+                
+                # Convert content to string if it's a list or other non-string type
+                msg_content = ""
+                if isinstance(msg_content_raw, str):
+                    msg_content = msg_content_raw
+                elif isinstance(msg_content_raw, list):
+                    # Handle list of content blocks (e.g., from Claude API)
+                    content_parts = []
+                    for item in msg_content_raw:
+                        if isinstance(item, str):
+                            content_parts.append(item)
+                        elif isinstance(item, dict):
+                            # Skip web_search_tool_result blocks that contain encrypted_content
+                            if item.get('type') == 'web_search_tool_result':
+                                logger.debug("Skipping web_search_tool_result block with encrypted_content", extra={
+                                    'request_id': request_id,
+                                    'user_id': req.userid
+                                })
+                                continue
+                            # Skip blocks that contain encrypted_content
+                            if 'encrypted_content' in item:
+                                logger.debug("Skipping content block with encrypted_content", extra={
+                                    'request_id': request_id,
+                                    'user_id': req.userid,
+                                    'block_type': item.get('type', 'unknown')
+                                })
+                                continue
+                            # Skip server_tool_use blocks (tool call information)
+                            if item.get('type') == 'server_tool_use':
+                                logger.debug("Skipping server_tool_use block", extra={
+                                    'request_id': request_id,
+                                    'user_id': req.userid,
+                                    'tool_name': item.get('name', 'unknown')
+                                })
+                                continue
+                            # Handle structured content blocks
+                            if item.get('type') == 'text' and 'text' in item:
+                                content_parts.append(item['text'])
+                            elif 'content' in item:
+                                # Recursively check nested content for encrypted_content
+                                nested_content = item['content']
+                                if isinstance(nested_content, list):
+                                    for nested_item in nested_content:
+                                        if isinstance(nested_item, dict) and 'encrypted_content' in nested_item:
+                                            continue  # Skip nested encrypted content
+                                        elif isinstance(nested_item, dict) and nested_item.get('type') == 'text' and 'text' in nested_item:
+                                            content_parts.append(nested_item['text'])
+                                        elif isinstance(nested_item, str):
+                                            content_parts.append(nested_item)
+                                else:
+                                    content_parts.append(str(nested_content))
+                            else:
+                                content_parts.append(str(item))
+                        else:
+                            content_parts.append(str(item))
+                    msg_content = "".join(content_parts)
+                else:
+                    msg_content = str(msg_content_raw)
                 
                 # Debug: log message content
                 logger.debug("Processing message", extra={
@@ -192,6 +264,7 @@ async def invoke(req: ReactRequest):
                         'message_type': type(msg).__name__,
                         'has_content': hasattr(msg, 'content'),
                         'has_tool_calls': hasattr(msg, 'tool_calls'),
+                        'content_type': type(msg_content_raw).__name__,
                         'content_preview': str(msg_content)[:200] if msg_content else None,
                         'tool_calls': [{'name': tc.get('name', 'unknown'), 'args': tc.get('args', {})} for tc in getattr(msg, 'tool_calls', [])[:3]]
                     }
@@ -211,7 +284,8 @@ async def invoke(req: ReactRequest):
                 })
                 
                 # Get the final response (last non-tool message)
-                if msg_content and not getattr(msg, 'tool_calls', None):
+                # Only update final_response for AIMessage without tool_calls
+                if isinstance(msg, AIMessage) and msg_content and not getattr(msg, 'tool_calls', None):
                     final_response = msg_content
         
         duration_ms = (time.time() - start_time) * 1000
@@ -327,6 +401,18 @@ async def chat(req: ChatRequest):
                 msgs_to_process = chunk["tools"]["messages"]
             
             for msg in msgs_to_process:
+                # Skip ToolMessage - these contain encrypted_content from web_search
+                # and should not be returned to the user
+                if isinstance(msg, ToolMessage):
+                    logger.debug("Skipping ToolMessage in chat", extra={
+                        'request_id': request_id,
+                        'details': {
+                            'message_type': 'ToolMessage',
+                            'tool_call_id': getattr(msg, 'tool_call_id', None)
+                        }
+                    })
+                    continue
+                
                 # Debug: log message structure
                 logger.debug("Processing chat message", extra={
                     'request_id': request_id,
@@ -338,13 +424,68 @@ async def chat(req: ChatRequest):
                 })
                 
                 # Get message content based on message type
-                msg_content = ""
+                msg_content_raw = ""
                 if hasattr(msg, 'content'):
-                    msg_content = msg.content
+                    msg_content_raw = msg.content
                 elif hasattr(msg, 'data') and 'content' in msg.data:
-                    msg_content = msg.data['content']
+                    msg_content_raw = msg.data['content']
                 else:
-                    msg_content = str(msg)
+                    msg_content_raw = str(msg)
+                
+                # Convert content to string if it's a list or other non-string type
+                msg_content = ""
+                if isinstance(msg_content_raw, str):
+                    msg_content = msg_content_raw
+                elif isinstance(msg_content_raw, list):
+                    # Handle list of content blocks (e.g., from Claude API)
+                    content_parts = []
+                    for item in msg_content_raw:
+                        if isinstance(item, str):
+                            content_parts.append(item)
+                        elif isinstance(item, dict):
+                            # Skip web_search_tool_result blocks that contain encrypted_content
+                            if item.get('type') == 'web_search_tool_result':
+                                logger.debug("Skipping web_search_tool_result block with encrypted_content in chat", extra={
+                                    'request_id': request_id
+                                })
+                                continue
+                            # Skip blocks that contain encrypted_content
+                            if 'encrypted_content' in item:
+                                logger.debug("Skipping content block with encrypted_content in chat", extra={
+                                    'request_id': request_id,
+                                    'block_type': item.get('type', 'unknown')
+                                })
+                                continue
+                            # Skip server_tool_use blocks (tool call information)
+                            if item.get('type') == 'server_tool_use':
+                                logger.debug("Skipping server_tool_use block in chat", extra={
+                                    'request_id': request_id,
+                                    'tool_name': item.get('name', 'unknown')
+                                })
+                                continue
+                            # Handle structured content blocks
+                            if item.get('type') == 'text' and 'text' in item:
+                                content_parts.append(item['text'])
+                            elif 'content' in item:
+                                # Recursively check nested content for encrypted_content
+                                nested_content = item['content']
+                                if isinstance(nested_content, list):
+                                    for nested_item in nested_content:
+                                        if isinstance(nested_item, dict) and 'encrypted_content' in nested_item:
+                                            continue  # Skip nested encrypted content
+                                        elif isinstance(nested_item, dict) and nested_item.get('type') == 'text' and 'text' in nested_item:
+                                            content_parts.append(nested_item['text'])
+                                        elif isinstance(nested_item, str):
+                                            content_parts.append(nested_item)
+                                else:
+                                    content_parts.append(str(nested_content))
+                            else:
+                                content_parts.append(str(item))
+                        else:
+                            content_parts.append(str(item))
+                    msg_content = "".join(content_parts)
+                else:
+                    msg_content = str(msg_content_raw)
                 
                 # Debug: log message content
                 logger.debug("Chat message content", extra={
@@ -356,7 +497,8 @@ async def chat(req: ChatRequest):
                 })
                 
                 # Get final response (last non-tool message)
-                if msg_content and not getattr(msg, 'tool_calls', None):
+                # Only update final_response for AIMessage without tool_calls
+                if isinstance(msg, AIMessage) and msg_content and not getattr(msg, 'tool_calls', None):
                     final_response = msg_content
         
         duration_ms = (time.time() - start_time) * 1000

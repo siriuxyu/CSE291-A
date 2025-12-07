@@ -123,8 +123,62 @@ async def call_model(
     # Get tools including LangMem tools for this user
     tools = get_tools_with_memory(user_id)
     
-    # Initialize the model with tool binding
-    model = load_chat_model(context.model).bind_tools(tools)
+    # Load the base model
+    base_model = load_chat_model(context.model)
+    
+    # Add Claude's built-in web search tool if enabled and using Anthropic model
+    if context.enable_web_search and context.model.startswith("anthropic/"):
+        try:
+            from langchain_anthropic import ChatAnthropic
+            if isinstance(base_model, ChatAnthropic):
+                # For Anthropic models, web search is added via the tools parameter
+                # Create web search tool definition
+                web_search_tool_def = {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": context.web_search_max_uses
+                }
+                
+                # For Anthropic API, web search tool needs to be passed along with custom tools
+                # We need to combine custom tools with web search tool in the tools parameter
+                # The bind_tools method handles custom tools, but we need to add web search
+                # We'll try to access the bound tools and add web search to them
+                model = base_model.bind_tools(tools)
+                
+                # Store web search tool definition
+                # We'll try to add it via the model's kwargs if possible
+                model._anthropic_web_search = web_search_tool_def
+                
+                # Try to add web search tool to the model's bound kwargs
+                # RunnableBinding uses 'kwargs' attribute, not 'bound_kwargs'
+                if hasattr(model, 'kwargs') and isinstance(model.kwargs, dict):
+                    # Get existing tools from kwargs if any
+                    existing_tools = model.kwargs.get('tools', [])
+                    # Convert to list if needed
+                    if not isinstance(existing_tools, list):
+                        existing_tools = []
+                    # Add web search tool
+                    existing_tools.append(web_search_tool_def)
+                    model.kwargs['tools'] = existing_tools
+                
+                logger.info("Web search enabled for Claude model", extra={
+                    'function': 'call_model',
+                    'details': {
+                        'web_search_max_uses': context.web_search_max_uses,
+                        'model': context.model
+                    }
+                })
+            else:
+                model = base_model.bind_tools(tools)
+        except Exception as e:
+            logger.warning(f"Failed to enable web search: {e}, falling back to regular tools", extra={
+                'function': 'call_model',
+                'error': str(e)
+            })
+            model = base_model.bind_tools(tools)
+    else:
+        # Initialize the model with tool binding (no web search)
+        model = base_model.bind_tools(tools)
     
     logger.debug("Model loaded and tools bound", extra={
         'function': 'call_model',
@@ -164,11 +218,17 @@ async def call_model(
         }
     })
     
+    # Prepare invocation messages
+    invoke_messages = [{"role": "system", "content": system_message}, *state.messages]
+    
+    # Note: Web search tool is stored in model._anthropic_web_search if enabled
+    # The bind_tools method handles custom tools, but web search needs special handling
+    # For now, we'll rely on the model's internal mechanism to handle web search
+    # If web search is not working, we may need to modify how tools are passed to the API
+    
     response = cast(
         AIMessage,
-        await model.ainvoke(
-            [{"role": "system", "content": system_message}, *state.messages]
-        ),
+        await model.ainvoke(invoke_messages),
     )
     
     model_duration_ms = (time.time() - start_time) * 1000

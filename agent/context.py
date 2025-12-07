@@ -36,6 +36,21 @@ class Context:
         },
     )
 
+    enable_web_search: bool = field(
+        default=True,
+        metadata={
+            "description": "Enable Claude's built-in web search capability. "
+            "When enabled, Claude can search the web for current information."
+        },
+    )
+
+    web_search_max_uses: int = field(
+        default=5,
+        metadata={
+            "description": "Maximum number of web searches Claude can perform per request."
+        },
+    )
+
     user_id: str = field(
         default="",
         metadata={

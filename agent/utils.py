@@ -6,7 +6,7 @@ import functools
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
@@ -224,14 +224,36 @@ def get_message_text(msg: BaseMessage) -> str:
         return "".join(txts).strip()
 
 
-def load_chat_model(fully_specified_name: str) -> BaseChatModel:
+def load_chat_model(fully_specified_name: str, tools: Optional[List] = None) -> BaseChatModel:
     """Load a chat model from a fully specified name.
 
     Args:
         fully_specified_name (str): String in the format 'provider/model'.
+        tools: Optional list of tools to include (for web search, etc.)
     """
     provider, model = fully_specified_name.split("/", maxsplit=1)
-    return init_chat_model(model, model_provider=provider)
+    base_model = init_chat_model(model, model_provider=provider)
+    
+    # If tools are provided and this is an Anthropic model, add web search tool
+    if tools is not None and provider == "anthropic":
+        try:
+            from langchain_anthropic import ChatAnthropic
+            if isinstance(base_model, ChatAnthropic):
+                # Add web search tool to the tools list
+                # Web search tool is a special tool that Claude API supports
+                web_search_tool = {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 5
+                }
+                # Note: This needs to be passed via the model's tools parameter
+                # We'll handle this in the graph.py when binding tools
+                pass
+        except Exception:
+            # If web search setup fails, continue without it
+            pass
+    
+    return base_model
 
 
 def print_debug(event):

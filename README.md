@@ -498,6 +498,25 @@ The memory system uses:
 export CHROMA_PERSIST_PATH="./chroma_db_data"
 ```
 
+### Running Benchmarks
+
+#### Tool Usage Benchmarks (`benchmark_runner.py`)
+
+Run tool usage benchmarks (short, medium, long):
+
+```bash
+# Run short benchmark
+python benchmark_runner.py --dataset short -o short_results.json
+
+# Run medium benchmark
+python benchmark_runner.py --dataset medium -o medium_results.json
+
+# Run long benchmark
+python benchmark_runner.py --dataset long -o long_results.json
+```
+
+**Note**: Results require manual human judgment (see "Benchmark Evaluation Notes" below).
+
 ### Running the LoCoMo Benchmark
 
 Two benchmark runners are available for testing cross-session memory:
@@ -561,3 +580,29 @@ Claude API rate limits:
 - **Haiku**: 50K input tokens/min, 50 requests/min
 
 With default settings (3s delay, ~1500 tokens/request), you can run ~20 requests/minute while staying within limits.
+
+### Benchmark Evaluation Notes
+
+**Important**: Results from `benchmark_runner.py` and `locomo_memory_runner.py` require manual human judgment for accuracy assessment.
+
+**Why Manual Evaluation is Needed:**
+
+1. **Dynamic API Responses**: Some tools return time-sensitive or dynamic data that can vary between runs:
+   - **Weather Tool** (`get_weather`): Weather data changes daily, so API call dates can produce significantly different results than expected answers in benchmark files
+   - **Web Search/Reader**: Web content may change over time, making exact matches unreliable
+   - **File System Search**: Results depend on the actual file system state at runtime
+
+2. **Semantic Correctness**: The automated answer matching uses simple text inclusion checks, which may:
+   - Mark correct answers as incorrect due to formatting differences
+   - Miss semantically equivalent but differently worded responses
+   - Fail to account for valid alternative phrasings
+
+3. **Context-Dependent Responses**: Some expected answers may be outdated or context-specific, requiring human judgment to determine if the agent's response is actually correct.
+
+**Recommendation**: Review the JSON result files manually, especially for:
+- Weather-related queries (check if the response is reasonable for the current date)
+- Web search results (verify if the information is accurate, even if wording differs)
+- File system queries (confirm if the found files are relevant)
+- Cross-session memory questions (verify if recalled information is correct)
+
+The automated metrics (answer_correct, tool_call_counts, etc.) should be treated as initial indicators, with final evaluation requiring human review.

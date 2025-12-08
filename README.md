@@ -561,6 +561,8 @@ python locomo_memory_runner.py \
 # Results saved to locomo_memory_results.json
 ```
 
+**Note on Temporal Questions**: The benchmark does not include exact timestamps of sessions when storing memories or querying the model. Therefore, the model is only expected to output **relative time** information (e.g., "earlier", "in a previous session", "yesterday") rather than absolute timestamps. This design reflects real-world scenarios where exact session timestamps may not be available or relevant.
+
 #### Token Limit Parameters
 
 Both runners support token limiting to avoid Anthropic rate limits (30K input tokens/min for Sonnet/Opus):

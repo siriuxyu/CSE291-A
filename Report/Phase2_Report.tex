@@ -1,0 +1,760 @@
+\documentclass[letterpaper]{article}
+
+% AAAI style packages
+\usepackage{aaai24}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage[hyphens]{url}
+\usepackage{graphicx}
+\urlstyle{rm}
+\usepackage{natbib}
+\usepackage{caption}
+\frenchspacing
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+
+% Additional packages
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    columns=fullflexible
+}
+
+% PDF metadata
+\pdfinfo{
+/TemplateVersion (2024.1)
+}
+
+\setcounter{secnumdepth}{2}
+
+\title{Context/Memory Implementation \& Performance:\\An Enhanced AI Agent with Long-Term Memory}
+
+\author{
+    Ziye Deng, Zheqi Liu, Zhengan Cheng, Tianzuo Liu, Hengjia Yu\\
+    UC San Diego\\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present an enhanced AI agent system with comprehensive context and memory capabilities. Our implementation features a hybrid extraction approach combining pattern-based and LLM-based methods, persistent vector storage using ChromaDB, and dynamic tool optimization based on user preferences. Experimental results demonstrate significant improvements over the baseline: 100\% task completion on all benchmarks (up from 21.4\% on long conversations), response quality improvements of up to 114.3\%, and 85.20\% accuracy on cross-session memory retrieval. The system provides effective personalization through automatic preference extraction and maintains coherence across extended multi-turn conversations.
+\end{abstract}
+
+\section{Implementation}
+
+\subsection{Context Extraction from Conversations and Tool Outputs}
+
+\textbf{Design Decision:} We employ a hybrid extraction approach combining pattern-based and LLM-based methods to balance real-time performance with extraction accuracy.
+
+\paragraph{Pattern-Based Extraction}
+Our pattern-based extraction system provides fast, rule-based extraction for common preference indicators. It enables real-time preference detection during conversations and classifies preferences into communication style, domain interests, response format, tool preferences, and interaction patterns. The system uses confidence scoring to prioritize high-quality extractions.
+
+\paragraph{LLM-Based Extraction}
+For deeper analysis, we leverage Claude's structured output capabilities for semantic analysis, capturing nuanced preferences that pattern matching might miss while providing structured preference data for storage and retrieval.
+
+\textbf{Key Technical Challenge:} Balancing extraction speed (for real-time use) with accuracy (for quality personalization). The hybrid approach addresses this by using fast pattern matching for common cases and LLM extraction for complex scenarios.
+
+\paragraph{Preference Management}
+The preference management system includes:
+\begin{itemize}
+    \item Intelligent merging of preferences across sessions with weighted confidence scores
+    \item Temporal tracking to identify preference evolution over time
+    \item Deduplication to prevent redundant storage
+\end{itemize}
+
+\subsection{Storage System}
+
+\textbf{Design Decision:} ChromaDB serves as the vector database backend for persistent, scalable semantic search.
+
+\paragraph{Why ChromaDB}
+We selected ChromaDB for several reasons: it is a lightweight, embedded database suitable for local deployment with native support for vector similarity search. It provides efficient metadata filtering for user isolation and requires no external service dependencies.
+
+\paragraph{Key Technical Challenges Solved}
+
+\begin{enumerate}
+    \item \textbf{User Isolation:} ChromaDB's flat metadata structure required careful design to ensure complete user data isolation using \texttt{user\_id} metadata filters, preventing cross-user data leakage in multi-tenant scenarios.
+    
+    \item \textbf{Metadata Management:} Complex nested metadata (session IDs, document types, timestamps) needed flattening for ChromaDB compatibility while maintaining query flexibility.
+    
+    \item \textbf{Embedding Pipeline:} Integration with OpenAI embeddings (\texttt{text-embedding-3-small}) with batch processing to optimize API usage and reduce latency.
+    
+    \item \textbf{Semantic Search:} Cosine similarity search with configurable similarity thresholds to balance recall (finding relevant memories) with precision (avoiding irrelevant results).
+\end{enumerate}
+
+\paragraph{Storage Architecture}
+The storage architecture follows a three-layer design: Agent Memory Tools (\texttt{search\_memory}, \texttt{store\_memory}) connect to the VectorStorageBackend (ChromaDB with persistent storage), which in turn interfaces with the EmbeddingService (OpenAI).
+
+\subsection{Tool Call Optimization Based on Context}
+
+\textbf{Design Decision:} Dynamic tool loading with user-specific memory tools and context-aware tool selection.
+
+\textbf{Key Innovation:} Integration with LangMem enables per-user memory tool generation while maintaining complete namespace isolation. This allows the agent to have memory capabilities without exposing one user's data to another.
+
+\paragraph{Context-Aware Optimization}
+\begin{itemize}
+    \item User preferences influence tool prioritization (e.g., language preferences trigger translator tool suggestions)
+    \item Historical context retrieved through semantic search informs tool selection
+    \item Memory tools automatically search user's past conversations for relevant information
+\end{itemize}
+
+\textbf{Technical Challenge:} Ensuring memory tools are dynamically created per-user while maintaining performance and isolation. LangMem's namespace-based isolation solves this by creating separate tool instances per user namespace.
+
+\subsection{Error Handling and Resource Management}
+
+\textbf{Design Philosophy:} Graceful degradation ensures the agent continues operating even if memory components fail, maintaining core functionality while logging errors for debugging.
+
+\paragraph{Key Design Decisions}
+\begin{enumerate}
+    \item \textbf{Graceful Degradation:} If memory storage is unavailable, the agent falls back to stateless operation, ensuring reliability in production environments.
+    
+    \item \textbf{Rate Limit Management:} Configurable token limits and request delays prevent API rate limit violations, critical for production deployment with Anthropic's API constraints.
+    
+    \item \textbf{Resource Cleanup:} Proper connection management for ChromaDB ensures no resource leaks during long-running operations.
+    
+    \item \textbf{Structured Logging:} Comprehensive logging with request tracking, user context, and performance metrics enables debugging and performance monitoring.
+\end{enumerate}
+
+\section{Experimental Results and Performance Analysis}
+
+\subsection{Benchmark Results}
+
+We evaluated the enhanced agent on three benchmark datasets: \textbf{short}, \textbf{medium}, and \textbf{long} conversations, plus the \textbf{LoCoMo} cross-session memory benchmark.
+
+\subsubsection{Evaluation Framework}
+
+\paragraph{Benchmark Datasets}
+\begin{itemize}
+    \item \textbf{Short Benchmark} (6 cases): Basic tool usage validation, single-turn interactions, answer correctness validation
+    \item \textbf{Medium Benchmark} (4 cases): Multi-turn conversations (2-4 turns), context retention testing, preference extraction validation
+    \item \textbf{Long Benchmark} (4 cases): Extended conversations (9-11 turns), complex task completion, memory integration testing
+    \item \textbf{LoCoMo Benchmark}: Cross-session memory evaluation, 19 sessions, 419 conversation turns, 196 QA questions across 5 categories
+\end{itemize}
+
+\paragraph{Evaluation Metrics}
+\begin{itemize}
+    \item \textbf{Accuracy Metrics:} Answer correctness (semantic matching), per-turn and per-case analysis
+    \item \textbf{Performance Metrics:} Latency per turn, memory storage statistics, token usage and rate limiting
+    \item \textbf{Quality Metrics:} Preference extraction success rate, context retention across turns, personalization effectiveness
+\end{itemize}
+
+\subsubsection{Short Benchmark Results}
+
+Table~\ref{tab:short-results} presents the short benchmark results covering 6 test cases for basic tool usage.
+
+\begin{table}[h]
+\centering
+\caption{Short Benchmark Results}
+\label{tab:short-results}
+\begin{tabular}{ll}
+\toprule
+Metric & Result \\
+\midrule
+Total Cases & 6 \\
+Answer Correct & 6/6 (100\%) \\
+Response Quality & 4.8/5.0 \\
+Tool Call Efficiency & 1.00 \\
+Average Latency & $\sim$14.0 seconds \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key Observations}
+The system achieved \textbf{perfect accuracy} on all test cases with \textbf{perfect tool call efficiency} (1.00). All expected tools were called with correct frequency. The agent successfully handled various task types including calculator, weather, translator, file search, and tool combinations, demonstrating context awareness in multi-turn conversations.
+
+\subsubsection{Medium Benchmark Results}
+
+Table~\ref{tab:medium-results} shows the medium benchmark results for 4 test cases with multi-turn conversations requiring context retention.
+
+\begin{table}[h]
+\centering
+\caption{Medium Benchmark Results}
+\label{tab:medium-results}
+\begin{tabular}{ll}
+\toprule
+Metric & Result \\
+\midrule
+Total Cases & 4 \\
+Answer Correct & 4/4 (100\%) \\
+Response Quality & 4.775/5.0 \\
+Tool Call Efficiency & 1.00 \\
+Average Latency & $\sim$12.0 seconds \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key Observations}
+The system achieved \textbf{perfect accuracy} with excellent response quality (4.775/5.0) on multi-turn conversations. Successful context retention across 2-4 conversation turns was observed, along with effective preference extraction and personalization.
+
+\paragraph{Key Improvements Demonstrated}
+\begin{enumerate}
+    \item \textbf{Perfect Context Retention:} Agent maintains conversation context across multiple turns (2-4 turns) with 100\% accuracy
+    \item \textbf{Effective Preference Personalization:} User preferences extracted and applied in 2/4 cases, including \texttt{living\_place}, \texttt{hobbies}, and \texttt{preferred\_translation\_language}
+    \item \textbf{High Response Quality:} 4.775/5.0 average quality rating demonstrates excellent response relevance and coherence
+    \item \textbf{Multi-Turn Coherence:} Successfully handles complex multi-turn tasks including reading comprehension, trip planning, arithmetic, and translation
+\end{enumerate}
+
+\subsubsection{Long Benchmark Results}
+
+Table~\ref{tab:long-results} presents the long benchmark results for 4 complex test cases with 9-11 conversation turns.
+
+\begin{table}[h]
+\centering
+\caption{Long Benchmark Results}
+\label{tab:long-results}
+\begin{tabular}{ll}
+\toprule
+Metric & Result \\
+\midrule
+Total Cases & 4 \\
+Answer Correct & 4/4 (100\%) \\
+Response Quality & 4.65/5.0 \\
+Tool Call Efficiency & 0.714 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key Observations}
+The system achieved \textbf{perfect accuracy} on all test cases with \textbf{good tool call efficiency} (0.714). Most expected tools were called correctly, with some cases using alternative tools. Excellent response quality (4.65/5.0) was observed on extended conversations, with successful context maintenance across 9-11 conversation turns.
+
+\paragraph{Key Improvements}
+\begin{enumerate}
+    \item \textbf{Long Conversation Handling:} Maintains coherence across 9-11 turns
+    \item \textbf{Memory Integration:} Successfully stores and retrieves information using \texttt{store\_memory} tool
+    \item \textbf{Preference Persistence:} Extracted preferences influence responses throughout long conversations
+\end{enumerate}
+
+\subsubsection{LoCoMo Cross-Session Memory Benchmark}
+
+Table~\ref{tab:locomo-results} shows the cross-session memory evaluation results.
+
+\begin{table}[h]
+\centering
+\caption{LoCoMo Benchmark Results}
+\label{tab:locomo-results}
+\begin{tabular}{ll}
+\toprule
+Metric & Result \\
+\midrule
+Personas Run & 1 \\
+Total Chunks Stored & 144 \\
+Total Characters Stored & 67,162 \\
+QA Accuracy & 167/196 (85.20\%) \\
+Response Quality & 4.29/5.0 \\
+Verified Memories & 100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:locomo-category} presents the category-wise breakdown of results.
+
+\begin{table}[h]
+\centering
+\caption{LoCoMo Category Breakdown}
+\label{tab:locomo-category}
+\begin{tabular}{lccc}
+\toprule
+Category & Total & Correct & Accuracy \\
+\midrule
+Category 1 & 31 & 22 & 71.0\% \\
+Category 2 & 37 & 33 & 89.2\% \\
+Category 3 & 11 & 10 & 90.9\% \\
+Category 4 & 70 & 62 & 88.6\% \\
+Category 5 & 47 & 40 & 85.1\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Analysis}
+The system achieved \textbf{high overall accuracy} (85.20\%) across all question categories with \textbf{good response quality} (4.29/5.0). Excellent performance was observed in specific categories (Categories 2-5: 85-91\% accuracy). Category 1 performance (71\% accuracy for identity/personal information questions) indicates that category-specific optimization for identity/personal information extraction would improve performance.
+
+\textbf{Note on Temporal Questions:} The benchmark does not include exact timestamps of sessions when storing memories or querying the model. Therefore, the model is only expected to output \textbf{relative time} information (e.g., ``earlier'', ``in a previous session'') rather than absolute timestamps.
+
+\subsection{Performance Improvements Over Baseline}
+
+\subsubsection{Better Generation Quality}
+
+Table~\ref{tab:task-completion} shows the task completion rate comparison between phases.
+
+\begin{table}[h]
+\centering
+\caption{Task Completion Rate Comparison}
+\label{tab:task-completion}
+\begin{tabular}{lccc}
+\toprule
+Benchmark & Phase 1 & Phase 2 & Improvement \\
+\midrule
+Short & 94.3\% & 100\% & +5.7\% \\
+Medium & 66.7\% & 100\% & +33.3\% \\
+Long & 21.4\% & 100\% & +78.6\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:response-quality} presents the response quality rating comparison.
+
+\begin{table}[h]
+\centering
+\caption{Response Quality Ratings (5-point scale)}
+\label{tab:response-quality}
+\begin{tabular}{lccc}
+\toprule
+Benchmark & Phase 1 & Phase 2 & Improvement \\
+\midrule
+Short & 4.45/5.0 & 4.8/5.0 & +7.9\% \\
+Medium & 3.85/5.0 & 4.775/5.0 & +24.0\% \\
+Long & 2.17/5.0 & 4.65/5.0 & +114.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key Observations}
+\begin{itemize}
+    \item \textbf{Short:} Small improvement from already high baseline (94.3\% $\rightarrow$ 100\%)
+    \item \textbf{Medium:} Major improvement (+33.3\%), demonstrating better context retention in multi-turn conversations
+    \item \textbf{Long:} Dramatic improvement (+78.6\%), showing the critical value of memory system for extended conversations
+\end{itemize}
+
+\subsubsection{Better Personalization Based on User Preferences}
+
+\paragraph{Preference Extraction Success}
+The system successfully extracted preferences in multiple test cases:
+\begin{itemize}
+    \item \texttt{living\_place}: San Diego
+    \item \texttt{hobbies}: Diving
+    \item \texttt{preferred\_translation\_language}: French, Spanish
+    \item \texttt{teaching\_tone}: Casual/friendly
+\end{itemize}
+
+\paragraph{Personalization Examples}
+\begin{enumerate}
+    \item \textbf{Location-based personalization:} The agent responded ``Since I know you live in San Diego, let me compare the water temperatures for you...'' providing relevant comparisons between San Diego and Hawaii water temperatures.
+    
+    \item \textbf{Language preference:} Consistent translation language maintained across conversations with teaching style adapted to user's learning preferences.
+\end{enumerate}
+
+\subsubsection{Response Time/Latency}
+
+\paragraph{Average Latency by Benchmark}
+\begin{itemize}
+    \item \textbf{Short:} $\sim$14.0 seconds per turn
+    \item \textbf{Medium:} $\sim$12.0 seconds per turn
+    \item \textbf{Long:} $\sim$17.0 seconds per turn (complex multi-tool operations)
+\end{itemize}
+
+\paragraph{Optimization Opportunities}
+\begin{itemize}
+    \item Batch embedding generation reduces per-request overhead
+    \item Memory search is asynchronous and non-blocking
+    \item Tool execution parallelization where possible
+    \item Embedding caching to reduce repeated API calls
+\end{itemize}
+
+\subsection{Side-by-Side Comparisons with Baseline (Phase 1)}
+
+\subsubsection{Phase 1 Baseline Characteristics}
+
+\paragraph{Phase 1 Implementation}
+\begin{itemize}
+    \item \textbf{Architecture:} Basic ReAct pattern with LangGraph
+    \item \textbf{Memory:} No long-term memory, only in-memory conversation history
+    \item \textbf{Context:} Limited to current conversation window
+    \item \textbf{Personalization:} No user preference extraction or storage
+    \item \textbf{Tools:} Static tool set (calculator, weather, translator, web\_reader, file\_system\_search)
+    \item \textbf{Session Management:} Basic thread-based isolation, no cross-session continuity
+\end{itemize}
+
+\paragraph{Key Limitations}
+\begin{enumerate}
+    \item No persistent storage---all context lost after session ends
+    \item No user preference learning---generic responses for all users
+    \item Limited context window---cannot maintain coherence in long conversations
+    \item No cross-session memory---cannot recall information from previous sessions
+\end{enumerate}
+
+\subsubsection{Comprehensive Feature Comparison}
+
+Table~\ref{tab:feature-comparison} presents a comprehensive feature comparison between phases.
+
+\begin{table*}[t]
+\centering
+\caption{Feature Comparison Between Phase 1 and Phase 2}
+\label{tab:feature-comparison}
+\begin{tabular}{llll}
+\toprule
+Feature & Phase 1 (Baseline) & Phase 2 (Enhanced) & Improvement \\
+\midrule
+Long-term Memory & None & ChromaDB vector storage & New capability \\
+Context Extraction & None & Pattern + LLM-based extraction & New capability \\
+Preference Learning & None & Automatic extraction and storage & New capability \\
+Cross-Session Recall & Not possible & 85.20\% accuracy (LoCoMo) & New capability \\
+Personalization & Generic responses & User-specific adaptation & Significant improvement \\
+Context Retention & Limited to session & Multi-turn + cross-session & Major improvement \\
+Tool Optimization & Static tool set & Context-aware tool selection & Enhanced \\
+Storage Backend & None & Persistent ChromaDB & New capability \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsubsection{Performance Comparison}
+
+\paragraph{Comparison 1: Context Retention}
+
+\textbf{Phase 1 (Baseline):}
+\begin{itemize}
+    \item No long-term memory
+    \item Limited context window (only current session)
+    \item Cannot reference information from previous sessions
+    \item Context lost when conversation ends
+\end{itemize}
+
+\textbf{Phase 2 (Enhanced):}
+\begin{itemize}
+    \item Maintains context across 9-11 turns (long benchmark)
+    \item Persistent storage in ChromaDB
+    \item Recalls user preferences from previous sessions
+    \item References earlier conversation points across sessions
+\end{itemize}
+
+\textbf{Quantitative Improvement:}
+\begin{itemize}
+    \item Long conversations: Phase 1 struggled with coherence beyond 3-4 turns; Phase 2 maintains 100\% accuracy across 9-11 turns
+    \item Cross-session: Phase 1 had 0\% capability; Phase 2 achieves 85.20\% accuracy on LoCoMo benchmark
+\end{itemize}
+
+\paragraph{Comparison 2: Personalization}
+
+\textbf{Phase 1 (Baseline):}
+\begin{itemize}
+    \item Generic responses for all users
+    \item No user-specific adaptation
+    \item No preference learning
+\end{itemize}
+
+\textbf{Phase 2 (Enhanced):}
+\begin{itemize}
+    \item Extracts and stores user preferences
+    \item Adapts responses based on stored preferences
+    \item Maintains consistent personalization across sessions
+    \item Context-aware tool selection
+\end{itemize}
+
+\paragraph{Comparison 3: Cross-Session Memory}
+
+\textbf{Phase 1 (Baseline):}
+\begin{itemize}
+    \item No cross-session memory capability (0\% accuracy)
+    \item Each session starts from scratch
+\end{itemize}
+
+\textbf{Phase 2 (Enhanced):}
+\begin{itemize}
+    \item Stores conversation summaries in ChromaDB
+    \item Retrieves relevant memories using semantic search
+    \item 85.20\% overall accuracy on LoCoMo benchmark
+    \item 85-91\% accuracy in specific question categories
+\end{itemize}
+
+\subsubsection{Architecture Comparison}
+
+\textbf{Phase 1 Architecture:}
+\begin{center}
+User Request $\rightarrow$ Agent (ReAct) $\rightarrow$ Tools $\rightarrow$ Response
+\end{center}
+
+\textbf{Phase 2 Architecture:}
+\begin{center}
+User Request $\rightarrow$ Agent (ReAct) $\rightarrow$ Context Extraction $\rightarrow$ Preference Storage\\
+$\downarrow$\\
+Tools $\leftarrow$ Memory Search $\leftarrow$ ChromaDB $\leftarrow$ Embeddings\\
+$\downarrow$\\
+Response (Personalized)
+\end{center}
+
+\paragraph{Key Architectural Improvements}
+\begin{enumerate}
+    \item \textbf{Memory Layer:} Added persistent vector storage (ChromaDB)
+    \item \textbf{Extraction Layer:} Added context and preference extraction
+    \item \textbf{Personalization Layer:} Added user-specific adaptation
+    \item \textbf{Tool Enhancement:} Dynamic tool loading based on user context
+\end{enumerate}
+
+\subsection{Value Demonstration}
+
+The context/memory system provides clear value:
+
+\begin{enumerate}
+    \item \textbf{Improved User Experience:}
+    \begin{itemize}
+        \item Users don't need to repeat information
+        \item Responses are personalized and contextually relevant
+        \item Long conversations maintain coherence
+    \end{itemize}
+    
+    \item \textbf{Better Task Completion:}
+    \begin{itemize}
+        \item Higher accuracy on multi-turn tasks
+        \item Successful tool selection based on context
+        \item Complex planning tasks completed successfully
+    \end{itemize}
+    
+    \item \textbf{Scalability:}
+    \begin{itemize}
+        \item Vector storage enables efficient semantic search
+        \item User-specific namespaces prevent data leakage
+        \item Persistent storage survives server restarts
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Statistical Summary}
+
+Table~\ref{tab:summary} presents the comprehensive performance summary.
+
+\begin{table*}[t]
+\centering
+\caption{Phase 2 Performance Summary}
+\label{tab:summary}
+\begin{tabular}{lccccc}
+\toprule
+Benchmark & Cases & Answer Accuracy & Response Quality & Tool Call Efficiency & Avg Latency \\
+\midrule
+Short & 6 & 100\% & 4.8/5.0 & 1.00 & 14.0s \\
+Medium & 4 & 100\% & 4.775/5.0 & 1.00 & 12.0s \\
+Long & 4 & 100\% & 4.65/5.0 & 0.714 & 17.0s \\
+LoCoMo & 1 & 85.20\% & 4.29/5.0 & N/A & N/A \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\textbf{Note:} LoCoMo benchmark answers do not require tool calls, and due to token limits we do not test its latency.
+
+\section{Novelty and Technical Depth}
+
+\subsection{Novel Contributions}
+
+\subsubsection{Hybrid Context Extraction System}
+
+\textbf{Novelty:} The system combines \textbf{pattern-based extraction} with \textbf{LLM-based structured extraction} for comprehensive preference detection.
+
+\begin{itemize}
+    \item \textbf{Pattern-Based} (\texttt{ContextExtractor}): Fast, rule-based extraction for common preference indicators
+    \item \textbf{LLM-Based} (\texttt{extract\_preferences}): Deep semantic analysis using Claude's structured output for nuanced preferences
+\end{itemize}
+
+This hybrid approach balances speed and accuracy, allowing real-time extraction while maintaining high-quality preference detection.
+
+\subsubsection{User-Specific Memory Namespaces with LangMem Integration}
+
+\textbf{Novelty:} Integration of LangMem with ChromaDB backend, providing:
+\begin{itemize}
+    \item \textbf{Dynamic tool generation} per user
+    \item \textbf{Namespace isolation} for multi-user scenarios
+    \item \textbf{Unified API} for both agent tools and REST endpoints
+\end{itemize}
+
+The system creates user-specific memory tools (\texttt{search\_memory}, \texttt{store\_memory}) dynamically, ensuring complete isolation while sharing the same storage backend.
+
+\subsubsection{Preference-Aware Tool Selection}
+
+\textbf{Novelty:} Tool selection is influenced by extracted preferences:
+\begin{itemize}
+    \item Language preferences $\rightarrow$ Translator tool prioritization
+    \item Communication style $\rightarrow$ Response format adaptation
+    \item Domain interests $\rightarrow$ Relevant tool suggestions
+\end{itemize}
+
+This goes beyond simple tool availability to context-aware tool optimization.
+
+\subsection{Technical Depth}
+
+\subsubsection{Vector Storage Architecture}
+
+\paragraph{Implementation Depth}
+\begin{itemize}
+    \item \textbf{ChromaDB Integration:} Full implementation of vector storage interface
+    \item \textbf{Embedding Pipeline:} OpenAI embeddings with batch processing
+    \item \textbf{Metadata Management:} Complex metadata flattening for ChromaDB compatibility
+    \item \textbf{Query Optimization:} Efficient similarity search with configurable thresholds
+\end{itemize}
+
+\paragraph{Technical Challenges Solved}
+\begin{itemize}
+    \item Metadata flattening for ChromaDB's flat metadata structure
+    \item User isolation using metadata filters
+    \item Batch embedding generation for performance
+    \item Error handling and connection management
+\end{itemize}
+
+\subsubsection{Asynchronous Architecture}
+
+\paragraph{Implementation Depth}
+\begin{itemize}
+    \item Full async/await support throughout the stack
+    \item Non-blocking memory operations
+    \item Concurrent tool execution where possible
+    \item Proper resource cleanup and error handling
+\end{itemize}
+
+\paragraph{Code Quality}
+\begin{itemize}
+    \item Type hints throughout
+    \item Comprehensive error handling
+    \item Structured logging with request tracking
+    \item Modular design with clear interfaces
+\end{itemize}
+
+\subsubsection{Memory Management System}
+
+\paragraph{Implementation Depth}
+\begin{itemize}
+    \item \textbf{Short-term memory:} In-memory conversation history
+    \item \textbf{Long-term memory:} Persistent vector storage
+    \item \textbf{Preference storage:} Structured preference extraction and storage
+    \item \textbf{Session management:} Session-based document organization
+\end{itemize}
+
+\paragraph{Memory Lifecycle}
+\begin{enumerate}
+    \item Messages added to short-term memory
+    \item Preferences extracted periodically
+    \item Session summaries generated
+    \item Long-term storage in ChromaDB with embeddings
+    \item Semantic search for context retrieval
+\end{enumerate}
+
+\section{Conclusion}
+
+The enhanced agent with context/memory implementation demonstrates significant improvements over the baseline:
+
+\begin{enumerate}
+    \item \textbf{High Accuracy:} 100\% on all benchmarks (short, medium, and long), representing improvements of +5.7\%, +33.3\%, and +78.6\% over Phase 1 baseline
+    
+    \item \textbf{High Response Quality:} Excellent quality ratings (4.65-4.8/5.0) across short, medium, and long benchmarks, representing improvements of +7.9\%, +24.0\%, and +114.3\% over Phase 1 baseline. LoCoMo benchmark achieved 4.29/5.0 quality rating.
+    
+    \item \textbf{Effective Personalization:} Successful preference extraction and application in 50\% of medium benchmark cases (2/4 cases)
+    
+    \item \textbf{Cross-Session Memory:} Functional long-term memory with 85.20\% overall accuracy (85-91\% in Categories 2-5)
+    
+    \item \textbf{Robust Architecture:} Modular design with proper error handling and resource management
+    
+    \item \textbf{Significant Improvements over Phase 1:} New capabilities in memory, personalization, and cross-session recall
+\end{enumerate}
+
+\paragraph{Key Achievements}
+\begin{itemize}
+    \item Comprehensive context extraction (pattern + LLM-based)
+    \item Persistent vector storage with ChromaDB
+    \item User-specific memory namespaces
+    \item Preference-aware tool selection
+    \item Cross-session memory retrieval
+\end{itemize}
+
+\paragraph{Future Work}
+\begin{itemize}
+    \item Category 1 (identity/personal) accuracy improvement
+    \item Latency optimization through parallelization
+    \item Advanced preference merging with temporal decay
+    \item Context compression for very long conversations
+\end{itemize}
+
+The system provides a solid foundation for production deployment with measurable improvements in user experience, task completion, and personalization.
+
+\appendix
+
+\section{Experimental Results Summary}
+
+\subsection{Short Benchmark Detailed Results}
+
+Table~\ref{tab:short-detailed} presents the detailed results for each short benchmark test case.
+
+\begin{table}[h]
+\centering
+\caption{Short Benchmark Detailed Results}
+\label{tab:short-detailed}
+\begin{tabular}{llcc}
+\toprule
+Test ID & Tools Used & Correct & Latency (s) \\
+\midrule
+test\_001 & calculator & \checkmark & 12.2 \\
+test\_002 & get\_weather & \checkmark & 15.9 \\
+test\_003 & translator & \checkmark & 13.7 \\
+test\_004 & file\_system\_search & \checkmark & 18.7 \\
+test\_005 & web\_reader & \checkmark & 10.4 \\
+test\_006 & weather, translator & \checkmark & 17.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Medium Benchmark Detailed Results}
+
+Table~\ref{tab:medium-detailed} shows the medium benchmark detailed results.
+
+\begin{table}[h]
+\centering
+\caption{Medium Benchmark Detailed Results}
+\label{tab:medium-detailed}
+\begin{tabular}{lccc}
+\toprule
+Test ID & Turns & Correct & Preferences \\
+\midrule
+test\_006 & 4 & 4/4 & None \\
+test\_007 & 3 & 3/3 & living\_place, hobbies \\
+test\_008 & 2 & 2/2 & None \\
+test\_009 & 3 & 3/3 & translation\_lang \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Long Benchmark Detailed Results}
+
+Table~\ref{tab:long-detailed} presents the long benchmark detailed results.
+
+\begin{table}[h]
+\centering
+\caption{Long Benchmark Detailed Results}
+\label{tab:long-detailed}
+\begin{tabular}{lccc}
+\toprule
+Test ID & Turns & Correct & Memory Used \\
+\midrule
+test\_030 & 11 & 11/11 & Context retention \\
+test\_031 & 4 & 4/4 & store\_memory \\
+test\_032 & 11 & 11/11 & Preferences \\
+test\_033 & 9 & 9/9 & Context retention \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{LoCoMo Memory Benchmark Results}
+
+\paragraph{Storage Statistics}
+\begin{itemize}
+    \item Sessions: 19
+    \item Total turns: 419
+    \item Chunks stored: 144
+    \item Characters stored: 67,162
+\end{itemize}
+
+\paragraph{QA Performance}
+\begin{itemize}
+    \item Total questions: 196
+    \item Correct answers: 167
+    \item Overall accuracy: 85.20\%
+    \item Category 1 accuracy: 71.0\%
+    \item Category 2-5 accuracy: 85-91\%
+\end{itemize}
+
+\end{document}
+

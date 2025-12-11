@@ -1,0 +1,72 @@
+% aaai24.sty - AAAI Press Style File
+% This is a simplified version for compatibility
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{aaai24}[2024/01/01 AAAI Press Style]
+
+% Page geometry
+\RequirePackage[letterpaper, margin=1in, top=0.75in, bottom=1in]{geometry}
+
+% Font settings
+\RequirePackage{mathptmx}
+
+% Title formatting
+\renewcommand{\maketitle}{%
+    \begin{center}
+        {\Large\bfseries\@title\par}
+        \vspace{1em}
+        {\normalsize\@author\par}
+        \vspace{2em}
+    \end{center}
+}
+
+% Section formatting
+\renewcommand{\section}{\@startsection{section}{1}{\z@}%
+    {-2.5ex \@plus -1ex \@minus -.2ex}%
+    {1.5ex \@plus .2ex}%
+    {\normalfont\large\bfseries}}
+
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}%
+    {-2ex \@plus -1ex \@minus -.2ex}%
+    {1ex \@plus .2ex}%
+    {\normalfont\normalsize\bfseries}}
+
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{\z@}%
+    {-1.5ex \@plus -1ex \@minus -.2ex}%
+    {0.5ex \@plus .2ex}%
+    {\normalfont\normalsize\bfseries}}
+
+% Paragraph formatting
+\renewcommand{\paragraph}{\@startsection{paragraph}{4}{\z@}%
+    {1ex \@plus 1ex \@minus .2ex}%
+    {-1em}%
+    {\normalfont\normalsize\bfseries}}
+
+% Abstract environment
+\renewenvironment{abstract}{%
+    \begin{center}
+        \textbf{Abstract}
+    \end{center}
+    \begin{quotation}
+        \small
+}{%
+    \end{quotation}
+    \vspace{1em}
+}
+
+% Two-column format
+\twocolumn
+
+% Page style
+\pagestyle{empty}
+
+% Caption setup
+\RequirePackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+% Tight lists
+\RequirePackage{enumitem}
+\setlist{noitemsep,topsep=0pt,parsep=0pt,partopsep=0pt}
+
+\endinput
+
